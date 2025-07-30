@@ -5,7 +5,7 @@ import QtQuick.Layouts
 Rectangle {
     id: loginDialog
     width: 350
-    height: 500
+    height: 550
     radius: 12
     color: "#fefefe"
     border.color: "#dddddd"

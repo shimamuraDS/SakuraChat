@@ -5,7 +5,7 @@ import QtQuick.Window
 ApplicationWindow {
     id: window
     width: 380
-    height: 550
+    height: 600
     visible: true
     title: qsTr("SakuraChat")
 

@@ -5,7 +5,7 @@ import QtQuick.Layouts
 Rectangle {
     id: registerDialog
     width: 350
-    height: 500
+    height: 550
     radius: 12
     color: "#fefefe"
     border.color: "#dddddd"
@@ -24,9 +24,37 @@ Rectangle {
     // 切换登录界面
     signal switchLogin()
 
+    // 样式管理
+    function setTipState(tipText, isError) {
+        errTip.text = tipText
+        errTip.state = isError ? "err" : "normal"
+    }
+
+    // 提示信息
+    function showTip(str, isError) {
+        setTipState(str, isError)
+    }
+
+    // 获取验证码
+    function getVerifyCode() {
+        var email = emailField.text
+
+        // 邮箱地址验证
+        var emailRegex = /^(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+$/
+
+        if (emailRegex.test(email)) {
+            if (typeof httpManager != "undefined") {
+                // TODO: 调用C++后端获取验证码
+                httpManager.getVerifyCode(email)
+            }
+        } else {
+            showTip(qsTr("邮箱地址不正确"), true)
+        }
+    }
+
     ColumnLayout {
         anchors.centerIn: parent
-        spacing: 14
+        spacing: 12
         width: parent.width * 0.8
 
         // 返回
@@ -61,6 +89,52 @@ Rectangle {
             font.bold: true
             color: "#333333"
             horizontalAlignment: Text.AlignHCenter
+        }
+
+        // 错误提示
+        Rectangle {
+            id: errTipWidget
+            Layout.fillWidth: true
+            Layout.preferredHeight: 18
+            color: "transparent"
+
+            Text {
+                id: errTip
+                anchors.centerIn: parent
+                text: ""
+                font.pixelSize: 14
+                horizontalAlignment: Text.AlignHCenter
+
+                // 状态管理
+                states: [
+                    State {
+                        name: "normal"
+                        PropertyChanges {
+                            target: errTip
+                            color: "#4CAF50"
+                        }
+                    },
+                    State {
+                        name: "err"
+                        PropertyChanges {
+                            target: errTip
+                            color: "#F44336"
+                        }
+                    }
+                ]
+
+                transitions: [
+                    Transition {
+                        ColorAnimation {
+                            duration: 200
+                            easing.type: Easing.InOutQuad
+                        }
+                    }
+                ]
+
+                // 初始状态
+                state: "normal"
+            }
         }
 
         // 用户名
@@ -137,6 +211,10 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
+
+                    onClicked: {
+                        getVerifyCode()
+                    }
                 }
             }
         }
@@ -187,6 +265,7 @@ Rectangle {
                 font.pixelSize: 16
 
                 echoMode: TextInput.Password
+
                 background: Rectangle {
                     border.color: regPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
                     border.width: 1
@@ -215,6 +294,7 @@ Rectangle {
                 font.pixelSize: 16
 
                 echoMode: TextInput.Password
+
                 background: Rectangle {
                     border.color: confirmPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
                     border.width: 1

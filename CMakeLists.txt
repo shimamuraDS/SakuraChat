@@ -21,6 +21,8 @@ qt_add_qml_module(appSakuraChat
         qml/LoginDialog.qml
     RESOURCES sakurachat.qrc
     QML_FILES qml/RegisterDialog.qml
+    SOURCES src/global.h src/global.cpp
+    RESOURCES README.md
 )
 
 if(WIN32)
