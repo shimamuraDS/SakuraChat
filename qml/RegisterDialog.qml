@@ -24,6 +24,23 @@ Rectangle {
     // 切换登录界面
     signal switchLogin()
 
+    // 连接C++信号
+    Connections {
+        target: registerControll
+
+        function onVerifyCodeResult(success, message) {
+            showTip(message, !success)
+        }
+
+        function onRegisterResult(success, message) {
+            showTip(message, !success)
+            if (success) {
+                // 注册成功，切换登录页面
+                registerDialog.switchLogin()
+            }
+        }
+    }
+
     // 样式管理
     function setTipState(tipText, isError) {
         errTip.text = tipText
@@ -43,13 +60,32 @@ Rectangle {
         var emailRegex = /^(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+$/
 
         if (emailRegex.test(email)) {
-            if (typeof httpManager != "undefined") {
-                // TODO: 调用C++后端获取验证码
-                httpManager.getVerifyCode(email)
-            }
+            // 调用C++后端获取验证码
+            registerController.getVerifyCode(email)
         } else {
             showTip(qsTr("邮箱地址不正确"), true)
         }
+    }
+
+    // 注册
+    function doRegister() {
+        var username = regUsernameField.text
+        var email = emailField.text
+        var verifyCode = verifyCodeField.text
+        var password = regPasswordField.text
+        var confirmPassword = confirmPasswordField.text
+
+        if (password != confirmPassword) {
+            showTip(qsTr("密码不匹配"), true)
+            return
+        }
+
+        if (username == "" || email == "" || verifyCode == "" || password == "") {
+            showTip(qsTr("请填写完整信息"), true)
+            return
+        }
+
+        registerController.registerUser(username, email, verifyCode, password)
     }
 
     ColumnLayout {
@@ -324,6 +360,10 @@ Rectangle {
                 color: "#ffffff"
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
+            }
+
+            onClicked: {
+                doRegister()
             }
         }
     }

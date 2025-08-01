@@ -23,12 +23,17 @@ qt_add_qml_module(appSakuraChat
     QML_FILES qml/RegisterDialog.qml
     SOURCES src/global.h src/global.cpp
     RESOURCES README.md
+    SOURCES src/singleton.h
+    SOURCES src/httpmgr.h src/httpmgr.cpp
+    SOURCES src/registercontroller.h src/registercontroller.cpp
 )
 
 if(WIN32)
     set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
     target_sources(appSakuraChat PRIVATE ${APP_ICON_RESOURCE_WINDOWS})
 endif()
+
+target_include_directories(appSakuraChat PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
