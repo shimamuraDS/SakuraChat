@@ -21,22 +21,32 @@ Rectangle {
         }
     }
 
+    property bool isLoading: false
+
     // 切换登录界面
     signal switchLogin()
 
     // 连接C++信号
     Connections {
-        target: registerControll
+        target: registerController
 
         function onVerifyCodeResult(success, message) {
+            console.log("收到验证码结果信号 - 成功:", success, "消息:", message)
             showTip(message, !success)
         }
 
         function onRegisterResult(success, message) {
+            isLoading = false;
+
+            console.log("收到注册结果信号 - 成功:", success, "消息:", message)
             showTip(message, !success)
             if (success) {
                 // 注册成功，切换登录页面
+                showTip("注册成功", !success)
                 registerDialog.switchLogin()
+            } else {
+                showTip(message || "注册失败，请重试", !success)
+                console.log("Registration failed:", message);
             }
         }
     }
@@ -67,11 +77,20 @@ Rectangle {
         }
     }
 
+    // 加载指示器
+    BusyIndicator {
+        anchors.centerIn: parent
+        visible: isLoading
+        running: isLoading
+    }
+
     // 注册
-    function doRegister() {
+    function onSureBtnClicked() {
+        console.log("Sure button clicked");
+
         var username = regUsernameField.text
         var email = emailField.text
-        var verifyCode = verifyCodeField.text
+        var varifyCode = verifyCodeField.text
         var password = regPasswordField.text
         var confirmPassword = confirmPasswordField.text
 
@@ -80,12 +99,14 @@ Rectangle {
             return
         }
 
-        if (username == "" || email == "" || verifyCode == "" || password == "") {
+        if (username === "" || email === "" || varifyCode === "" || password === "") {
             showTip(qsTr("请填写完整信息"), true)
             return
         }
 
-        registerController.registerUser(username, email, verifyCode, password)
+        isLoading = true;
+
+        registerController.registerUser(username, email, varifyCode, password, confirmPassword)
     }
 
     ColumnLayout {
@@ -346,7 +367,8 @@ Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 45
             Layout.topMargin: 10
-            text: "注册"
+            text: isLoading ? "注册中..." : "注册"
+            enabled: !isLoading
 
             background: Rectangle {
                 color: registerBtn.pressed ? "#1DDCC0" : "#1DDCC1"
@@ -363,7 +385,7 @@ Rectangle {
             }
 
             onClicked: {
-                doRegister()
+                onSureBtnClicked()
             }
         }
     }

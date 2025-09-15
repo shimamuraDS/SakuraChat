@@ -1,5 +1,6 @@
 #include "registercontroller.h"
 #include <QObject>
+#include "global.h"
 
 RegisterController::RegisterController(QObject *parent) : QObject(parent) {
     initHttpHandlers();
@@ -10,21 +11,20 @@ void RegisterController::getVerifyCode(const QString& email) {
     QJsonObject json;
     json["email"] = email;
 
-    // TODO: 服务器地址
-    QUrl url("http://server.com/get_verify_code");
-    HttpMgr::GetInstance()->PostHttpReq(url, json, ReqId::ID_GET_VARIFY_CODE, Modules::REGISTERMOD);
+    QString url = gate_url_prefix + "/get_varifycode";
+    HttpMgr::GetInstance()->PostHttpReq(QUrl(url), json, ReqId::ID_GET_VARIFY_CODE, Modules::REGISTERMOD);
 }
 
-void RegisterController::registerUser(const QString& username, const QString& email, const QString& verifyCode, const QString& password){
+void RegisterController::registerUser(const QString& username, const QString& email, const QString& varifyCode, const QString& password, const QString& confirm){
     QJsonObject json;
     json["username"] = username;
     json["email"] = email;
-    json["verify_code"] = verifyCode;
+    json["varifycode"] = varifyCode;
     json["password"] = password;
+    json["confirm"] = confirm;
 
-    // TODO: 服务器地址
-    QUrl url("http://your-server.com/register");
-    HttpMgr::GetInstance()->PostHttpReq(url, json, ReqId::ID_REG_USER, Modules::REGISTERMOD);
+    QString url = gate_url_prefix + "/user_register";
+    HttpMgr::GetInstance()->PostHttpReq(QUrl(url), json, ReqId::ID_REG_USER, Modules::REGISTERMOD);
 }
 
 void RegisterController::initHttpHandlers() {
@@ -32,6 +32,9 @@ void RegisterController::initHttpHandlers() {
     _handlers.insert(ReqId::ID_GET_VARIFY_CODE, [this](QJsonObject jsonObj) {
         int error = jsonObj["error"].toInt();
         if (error != ErrorCodes::SUCCESS) {
+            qDebug() << "Received JSON:" << jsonObj;
+            qDebug() << "Error code:" << error;
+
             emit verifyCodeResult(false, QObject::tr("参数错误"));
             return;
         }
@@ -75,5 +78,7 @@ void RegisterController::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes e
 
     QJsonObject jsonObj = jsonDoc.object();
     // 根据id回调
-    _handlers[id](jsonObj);
+    if (_handlers.contains(id)){
+        _handlers[id](jsonObj);
+    }
 }

@@ -25,7 +25,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     QObject::connect(reply, &QNetworkReply::finished, [reply, self, req_id, mod]() {
         // 错误
         if (reply->error() != QNetworkReply::NoError) {
-            qDebug() << reply->errorString();
+            qDebug() << "Network error occurred:" << reply->errorString();
+            qDebug() << "Error code:" << reply->error();
             // 发送信号通知完成
             emit self->sig_http_finish(req_id, "", ErrorCodes::ERR_NETWORK, mod);
             reply->deleteLater();

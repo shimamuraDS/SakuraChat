@@ -26,6 +26,7 @@ qt_add_qml_module(appSakuraChat
     SOURCES src/singleton.h
     SOURCES src/httpmgr.h src/httpmgr.cpp
     SOURCES src/registercontroller.h src/registercontroller.cpp
+    RESOURCES config.ini
 )
 
 if(WIN32)
@@ -56,3 +57,15 @@ install(TARGETS appSakuraChat
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    # 拷贝 config.ini 到输出目录
+    add_custom_command(
+        TARGET appSakuraChat POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+            "$<TARGET_FILE_DIR:appSakuraChat>/config.ini"
+        COMMENT "Copying config.ini to output directory"
+    )
+endif()
+

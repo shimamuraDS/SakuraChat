@@ -1,5 +1,6 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
+#include <QString>
 
 // 请求ID枚举
 enum ReqId {
@@ -18,5 +19,8 @@ enum ErrorCodes {
 enum Modules {
     REGISTERMOD = 0,
 };
+
+// 全局配置变量声明
+extern QString gate_url_prefix;
 
 #endif // GLOBAL_H

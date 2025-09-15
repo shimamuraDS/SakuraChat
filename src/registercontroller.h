@@ -10,7 +10,7 @@ public:
     explicit RegisterController(QObject *parent = nullptr);
 
     Q_INVOKABLE void getVerifyCode(const QString& email);
-    Q_INVOKABLE void registerUser(const QString& username, const QString& email, const QString& verifyCode, const QString& password);
+    Q_INVOKABLE void registerUser(const QString& username, const QString& email, const QString& varifyCode, const QString& password, const QString& confirm);
 
 private:
     void initHttpHandlers();
