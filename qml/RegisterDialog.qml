@@ -252,24 +252,54 @@ Rectangle {
                 }
 
                 Button {
+                    id: timerButton
+
+                    property int countdownTime: 60 // 倒计时时间
+                    property int currentCount: 60 // 当前倒计时
+                    property bool isCountingDown: false
+
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 40
-                    text: "获取验证码"
+                    text: isCountingDown ? currentCount.toString() : "获取验证码"
+                    enabled: !isCountingDown
+
+                    Timer {
+                        id: countdownTimer
+                        interval: 1000
+                        repeat: true
+                        running: false
+
+                        onTriggered: {
+                            timerButton.currentCount--
+                            if (timerButton.currentCount <= 0) {
+                                stop()
+                                timerButton.isCountingDown = false;
+                                timerButton.currentCount = timerButton.countdownTime
+                            }
+                        }
+                    }
 
                     background: Rectangle {
-                        color: parent.pressed ? "#1DDCC0" : "#1DDCC1"
+                        color: timerButton.enabled ? "#83ECF8" : "#CCCCCC"
                         radius: 5
+                        border.color: timerButton.enabled ? "#1DDCC1" : "#AAAAAA"
+                        border.width: 1
                     }
 
                     contentItem: Text {
                         text: parent.text
-                        font.pixelSize: 12
-                        color: "#ffffff"
+                        font.pixelSize: timerButton.enabled ? 12 : 16
+                        color: timerButton.enabled ? "black" : "#666666"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
 
                     onClicked: {
+                        if (!isCountingDown) {
+                            isCountingDown = true
+                            currentCount = countdownTime
+                            countdownTimer.start()
+                        }
                         getVerifyCode()
                     }
                 }
