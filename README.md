@@ -79,6 +79,34 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
   - 加载状态管理: 注册过程中显示BusyIndicator
   - 邮箱格式验证: 使用正则表达式验证邮箱格式
 
+#### `TimerButton.qml`
+- **功能**: 独立的倒计时按钮组件
+- **特性**:
+  - 可配置倒计时时间 (countdownTime属性)
+  - 可配置正常状态文本 (normalText属性)
+  - 倒计时期间自动禁用按钮
+  - 动态文本显示(倒计时数字或按钮文本)
+  - 自动重置功能
+  - 提供控制方法: startCountdown(), stopCountdown(), resetCountdown()
+  - 优雅的动画效果(点击缩放、文本变化动画)
+  - 悬浮颜色变化效果
+- **用途**:
+  - 验证码获取按钮
+  - 短信发送按钮
+  - 其他需要防重复点击的操作按钮
+  
+#### `ClickableLabel.qml`
+- **功能**: 可点击的标签组件
+- **特性**:
+  - 支持六种状态: 普通、普通悬浮、普通点击、选中、选中悬浮、选中点击
+  - 状态图片切换
+  - 鼠标悬浮效果
+  - 点击状态切换
+  - 鼠标指针样式
+- **用途**:
+  - 密码显示/隐藏切换
+  - 其他需要状态切换的UI元素
+
 ### 3. C++核心类
 
 #### `HttpMgr` (httpmgr.h/cpp)
@@ -160,7 +188,9 @@ SakuraChat/
 ├── qml/
 │   ├── Main.qml           # 主窗口和界面切换逻辑
 │   ├── LoginDialog.qml    # 登录界面
-│   └── RegisterDialog.qml # 注册界面(完整功能实现)
+│   ├── RegisterDialog.qml # 注册界面(完整功能实现)
+│   ├── TimerButton.qml    # 独立倒计时按钮组件
+│   └── ClickableLable.qml # 可点击标签组件
 └── sakurachat.qrc         # 资源文件
 ```
 

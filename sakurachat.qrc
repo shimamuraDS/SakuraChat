@@ -2,5 +2,9 @@
     <qresource prefix="/">
         <file>SakuraChat.ico</file>
         <file>res/SakuraChat.png</file>
+        <file>res/unvisible.png</file>
+        <file>res/unvisible_hover.png</file>
+        <file>res/visible.png</file>
+        <file>res/visible_hover.png</file>
     </qresource>
 </RCC>

@@ -251,55 +251,15 @@ Rectangle {
                     }
                 }
 
-                Button {
+                TimerButton {
                     id: timerButton
-
-                    property int countdownTime: 60 // 倒计时时间
-                    property int currentCount: 60 // 当前倒计时
-                    property bool isCountingDown: false
-
-                    Layout.preferredWidth: 80
+                    Layout.preferredWidth: 90
                     Layout.preferredHeight: 40
-                    text: isCountingDown ? currentCount.toString() : "获取验证码"
-                    enabled: !isCountingDown
-
-                    Timer {
-                        id: countdownTimer
-                        interval: 1000
-                        repeat: true
-                        running: false
-
-                        onTriggered: {
-                            timerButton.currentCount--
-                            if (timerButton.currentCount <= 0) {
-                                stop()
-                                timerButton.isCountingDown = false;
-                                timerButton.currentCount = timerButton.countdownTime
-                            }
-                        }
-                    }
-
-                    background: Rectangle {
-                        color: timerButton.enabled ? "#83ECF8" : "#CCCCCC"
-                        radius: 5
-                        border.color: timerButton.enabled ? "#1DDCC1" : "#AAAAAA"
-                        border.width: 1
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font.pixelSize: timerButton.enabled ? 12 : 16
-                        color: timerButton.enabled ? "black" : "#666666"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                    countdownTime: 60
+                    normalText: "获取验证码"
 
                     onClicked: {
-                        if (!isCountingDown) {
-                            isCountingDown = true
-                            currentCount = countdownTime
-                            countdownTimer.start()
-                        }
+                        startCountdown()
                         getVerifyCode()
                     }
                 }
@@ -344,20 +304,37 @@ Rectangle {
                 color: "#666666"
             }
 
-            TextField {
-                id: regPasswordField
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                placeholderText: "请输入密码"
-                font.pixelSize: 16
+                spacing: 5
+                TextField {
+                    id: regPasswordField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    placeholderText: "请输入密码"
+                    font.pixelSize: 16
+                    echoMode: passwordVisible.isSelected ? TextInput.Normal : TextInput.Password
 
-                echoMode: TextInput.Password
+                    background: Rectangle {
+                        border.color: regPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                        border.width: 1
+                        radius: 5
+                        color: "#FAFAFA"
+                    }
+                }
 
-                background: Rectangle {
-                    border.color: regPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1
-                    radius: 5
-                    color: "#FAFAFA"
+                ClickableLabel {
+                    id: passwordVisible
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    Layout.alignment: Qt.AlighVCenter
+
+                    Component.onCompleted: {
+                        setState("qrc:/res/unvisible.png",
+                                 "qrc:/res/unvisible_hover.png",
+                                 "qrc:/res/visible.png",
+                                 "qrc:/res/visible_hover.png")
+                    }
                 }
             }
         }
@@ -373,20 +350,38 @@ Rectangle {
                 color: "#666666"
             }
 
-            TextField {
-                id: confirmPasswordField
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                placeholderText: "请再次输入密码"
-                font.pixelSize: 16
+                spacing: 5
+                TextField {
+                    id: confirmPasswordField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    placeholderText: "请再次输入密码"
+                    font.pixelSize: 16
 
-                echoMode: TextInput.Password
+                    echoMode: confirmPasswordVisible.isSelected ? TextInput.Normal : TextInput.Password
 
-                background: Rectangle {
-                    border.color: confirmPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1
-                    radius: 5
-                    color: "#FAFAFA"
+                    background: Rectangle {
+                        border.color: confirmPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                        border.width: 1
+                        radius: 5
+                        color: "#FAFAFA"
+                    }
+                }
+
+                ClickableLabel {
+                    id: confirmPasswordVisible
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Component.onCompleted: {
+                        setState("qrc:/res/unvisible.png",
+                                 "qrc:/res/unvisible_hover.png",
+                                 "qrc:/res/visible.png",
+                                 "qrc:/res/visible_hover.png")
+                    }
                 }
             }
         }

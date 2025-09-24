@@ -27,6 +27,8 @@ qt_add_qml_module(appSakuraChat
     SOURCES src/httpmgr.h src/httpmgr.cpp
     SOURCES src/registercontroller.h src/registercontroller.cpp
     RESOURCES config.ini
+    QML_FILES qml/ClickableLabel.qml
+    QML_FILES qml/TimerButton.qml
 )
 
 if(WIN32)
