@@ -26,6 +26,131 @@ Rectangle {
     // 切换登录界面
     signal switchLogin()
 
+    // 错误提示缓存
+    property var tipErrors: ({})
+    property int currentPage: 0
+    property int countdown: 5
+
+    // 错误提示枚举
+    readonly property int tipSuccess: 0
+    readonly property int tipEmailErr: 1
+    readonly property int tipPwdErr: 2
+    readonly property int tipConfirmErr: 3
+    readonly property int tipPwdConfirm: 4
+    readonly property int tipVarifyErr: 5
+    readonly property int tipUserErr: 6
+
+    // 提示函数
+    function showTip(message, isError = false, fromValidation = false, tipType = -1) {
+        if (fromValidation) {
+            // 强制字符串键，避免删除失败
+            var key = String(tipType)
+
+            if (isError) {
+                tipErrors[key] = message
+            } else {
+                if (tipErrors.hasOwnProperty(key))
+                    delete tipErrors[key]
+            }
+
+            // 显示第一个错误
+            var keys = Object.keys(tipErrors)
+            if (keys.length === 0) {
+                errTip.text = ""
+                errTip.state = "normal"
+            } else {
+                errTip.text = tipErrors[keys[0]]
+                errTip.state = "err"
+            }
+        } else {
+            // 非表单验证提示
+            errTip.text = message
+            errTip.state = isError ? "err" : "normal"
+        }
+    }
+
+
+
+    // 验证用户名
+    function checkUserValid() {
+        if (regUsernameField.text === "") {
+            showTip("用户名不能为空", true, true, tipUserErr)
+            return false
+        }
+        showTip("", false, true, tipUserErr)
+        return true
+    }
+
+    // 验证邮箱
+    function checkEmailValid() {
+        var emailRegex = /(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+/
+        if (!emailRegex.test(emailField.text)) {
+            showTip("邮箱地址不正确", true, true, tipEmailErr)
+            return false
+        }
+        showTip("", false, true, tipEmailErr)
+        return true
+    }
+
+    // 验证密码
+    function checkPassValid() {
+        var pass = regPasswordField.text
+        if (pass.length < 6 || pass.length > 15) {
+            showTip("密码长度应为6~15", true, true, tipPwdErr)
+            return false
+        }
+        var passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/
+        if (!passRegex.test(pass)) {
+            showTip("不能包含非法字符", true, true, tipPwdErr)
+            return false
+        }
+        showTip("", false, true, tipPwdErr)
+        return true
+    }
+
+    // 验证确认密码
+    function checkConfirmValid() {
+        if (confirmPasswordField.text !== regPasswordField.text) {
+            showTip("两次密码输入不一致", true, true, tipPwdConfirm)
+            return false
+        }
+        showTip("", false, true, tipPwdConfirm)
+        return true
+    }
+
+    // 验证验证码
+    function checkVerifyValid() {
+        if (verifyCodeField.text === "") {
+            showTip("验证码不能为空", true, true, tipVarifyErr)
+            return false
+        }
+        showTip("", false, true, tipVarifyErr)
+        return true
+    }
+
+    // 切换到提示页面
+    function changeTipPage() {
+        countdownTimer.stop()
+        currentPage = 1
+        countdown = 5
+        countdownTimer.start()
+    }
+
+    // 倒计时定时器
+    Timer {
+        id: countdownTimer
+        interval: 1000
+        repeat: true
+        onTriggered: {
+            if (countdown === 0) {
+                countdownTimer.stop()
+                root.switchToLogin()
+                return
+            }
+            countdown--
+        }
+    }
+
     // 连接C++信号
     Connections {
         target: registerController
@@ -51,30 +176,12 @@ Rectangle {
         }
     }
 
-    // 样式管理
-    function setTipState(tipText, isError) {
-        errTip.text = tipText
-        errTip.state = isError ? "err" : "normal"
-    }
-
-    // 提示信息
-    function showTip(str, isError) {
-        setTipState(str, isError)
-    }
-
     // 获取验证码
     function getVerifyCode() {
-        var email = emailField.text
-
-        // 邮箱地址验证
-        var emailRegex = /^(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+$/
-
-        if (emailRegex.test(email)) {
-            // 调用C++后端获取验证码
-            registerController.getVerifyCode(email)
-        } else {
-            showTip(qsTr("邮箱地址不正确"), true)
-        }
+        if (!checkEmailValid())
+            return
+        // 调用C++后端获取验证码
+        registerController.getVerifyCode(emailField.text)
     }
 
     // 加载指示器
@@ -88,21 +195,30 @@ Rectangle {
     function onSureBtnClicked() {
         console.log("Sure button clicked");
 
+        tipErrors = {}
+
+        var valid = checkUserValid()
+        if (!valid) return
+
+        valid = checkEmailValid()
+        if (!valid) return
+
+        valid = checkPassValid()
+        if (!valid) return
+
+        valid = checkConfirmValid()
+        if (!valid) return
+
+        valid = checkVerifyValid()
+        if (!valid) return
+
+        BusyIndicator.running = true
+
         var username = regUsernameField.text
         var email = emailField.text
         var varifyCode = verifyCodeField.text
         var password = regPasswordField.text
         var confirmPassword = confirmPasswordField.text
-
-        if (password != confirmPassword) {
-            showTip(qsTr("密码不匹配"), true)
-            return
-        }
-
-        if (username === "" || email === "" || varifyCode === "" || password === "") {
-            showTip(qsTr("请填写完整信息"), true)
-            return
-        }
 
         isLoading = true;
 
@@ -218,6 +334,8 @@ Rectangle {
                     radius: 5
                     color: "#FAFAFA"
                 }
+
+                onEditingFinished: checkUserValid()
             }
         }
 
@@ -249,6 +367,7 @@ Rectangle {
                         radius: 5
                         color: "#FAFAFA"
                     }
+                    onEditingFinished: checkEmailValid()
                 }
 
                 TimerButton {
@@ -290,6 +409,7 @@ Rectangle {
                     radius: 5
                     color: "#FAFAFA"
                 }
+                onEditingFinished: checkVerifyValid()
             }
         }
 
@@ -321,6 +441,7 @@ Rectangle {
                         radius: 5
                         color: "#FAFAFA"
                     }
+                    onEditingFinished: checkPassValid()
                 }
 
                 ClickableLabel {
@@ -368,6 +489,7 @@ Rectangle {
                         radius: 5
                         color: "#FAFAFA"
                     }
+                    onEditingFinished: checkConfirmValid()
                 }
 
                 ClickableLabel {
