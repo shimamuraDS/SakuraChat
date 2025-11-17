@@ -11,26 +11,49 @@ ApplicationWindow {
 
     // 状态管理
     property bool showLogin: true
+    property bool showRegister: false
+    property bool showReset: false
 
     // 登录
-    LoginDialog {
-        id: loginDialog
+    Loader {
+        id: loginLoader
         anchors.fill: parent
-        visible: window.showLogin
-
-        onSwitchRegister: {
-            window.showLogin = false
+        active: showLogin
+        sourceComponent: LoginDialog {
+            onSwitchRegister: {
+                showLogin = false
+                showRegister = true
+            }
+            onSwitchReset: {
+                showLogin = false
+                showReset = true
+            }
         }
     }
 
     // 注册
-    RegisterDialog {
-        id: registerDialog
+    Loader {
+        id: registerLoader
         anchors.fill: parent
-        visible: !window.showLogin
+        active: showRegister
+        sourceComponent: RegisterDialog {
+            onSwitchLogin: {
+                showRegister = false
+                showLogin = true
+            }
+        }
+    }
 
-        onSwitchLogin: {
-            window.showLogin = true
+    // 重置
+    Loader {
+        id: resetLoader
+        anchors.fill: parent
+        active: showReset
+        sourceComponent: ResetDialog {
+            onSwitchLogin: {
+                showReset = false
+                showLogin = true
+            }
         }
     }
 }

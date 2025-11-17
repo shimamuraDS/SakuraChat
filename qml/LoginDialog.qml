@@ -23,6 +23,8 @@ Rectangle {
 
     // 切换注册
     signal switchRegister()
+    // 切换重置
+    signal switchReset()
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -112,6 +114,33 @@ Rectangle {
                     color: "#f9f9f9"
                     border.color: passwordField.activeFocus ? "#1DDCC1" : "#cccccc"
                     border.width: 1
+                }
+            }
+        }
+
+        // 忘记密码
+        Text {
+            id: forgetLabel
+            text: "忘记密码?"
+            color: "#1976d2"
+            font.pixelSize: 12
+            Layout.alignment: Qt.AlignRight
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+
+                onEntered: {
+                    forgetLabel.color = "#1565c0"
+                    forgetLabel.font.underline = true
+                }
+                onExited: {
+                    forgetLabel.color = "#1976d2"
+                    forgetLabel.font.underline = false
+                }
+                onClicked: {
+                    loginDialog.switchReset()
                 }
             }
         }

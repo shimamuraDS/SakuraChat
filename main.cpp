@@ -2,6 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QIcon>
 #include "registercontroller.h"
+#include "resetcontroller.h"
 #include <QQmlContext>
 #include <QDir>
 #include <QSettings>
@@ -30,7 +31,9 @@ int main(int argc, char *argv[])
 
     // 注册RegisterController到QML
     RegisterController *registerController = new RegisterController();
+    ResetController *resetController = new ResetController();
     engine.rootContext()->setContextProperty("registerController", registerController);
+    engine.rootContext()->setContextProperty("resetController", resetController);
 
     QObject::connect(
         &engine,
