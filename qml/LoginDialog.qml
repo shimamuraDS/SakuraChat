@@ -26,6 +26,64 @@ Rectangle {
     // 切换重置
     signal switchReset()
 
+    // 登录处理函数
+    function handleLogin() {
+        if (!checkUserValid()) return;
+        if (!checkPassValid()) return;
+
+        var userData = {
+            user: usernameField.text,
+            passwd: loginController.xorString(passwordField.text)
+        };
+
+        loginController.loginUser(userData);
+    }
+
+    // 用户名验证
+    function checkUserValid() {
+        if (user_edit.text === "") {
+            showTip("用户名不能为空", false);
+            return false;
+        }
+        return true;
+    }
+
+    // 密码验证
+    function checkPassValid() {
+        var pwd = pass_edit.text;
+        if (pwd.length < 6 || pwd.length > 15) {
+            showTip("密码长度必须在6-15位之间", false);
+            return false;
+        }
+        return true;
+    }
+
+    // 显示提示信息
+    function showTip(message, success) {
+        err_tip.text = message;
+        err_tip.color = success ? "green" : "red";
+        tipTimer.restart();
+    }
+
+    // 监听登录结果
+    Connections {
+        target: loginController
+        function onLoginResult(success, error, message, user) {
+            if (!success) {
+                if (error === ErrorCodes.ERR_NETWORK) {
+                    showTip("网络请求错误", false);
+                } else {
+                    showTip(message || "登录失败", false);
+                }
+                return;
+            }
+
+            showTip("登录成功", true);
+            console.log("User logged in:", user);
+            // TODO: 跳转到主界面
+        }
+    }
+
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 18
@@ -56,6 +114,15 @@ Rectangle {
             horizontalAlignment: Text.AlignHCenter
             font.letterSpacing: 2
         }
+
+        Text {
+                id: err_tip
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 20
+                color: "red"
+                visible: text !== ""
+            }
 
         // 用户名输入框
         ColumnLayout {
@@ -170,6 +237,10 @@ Rectangle {
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
+
+            onClicked: {
+                handleLogin()
+            }
         }
 
         // 注册按钮
@@ -194,7 +265,9 @@ Rectangle {
                 verticalAlignment: Text.AlignVCenter
             }
 
-            onClicked: loginDialog.switchRegister()
+            onClicked: {
+                loginDialog.switchRegister()
+            }
         }
     }
 }

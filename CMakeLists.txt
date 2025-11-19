@@ -31,6 +31,7 @@ qt_add_qml_module(appSakuraChat
     QML_FILES qml/TimerButton.qml
     QML_FILES qml/ResetDialog.qml
     SOURCES src/resetcontroller.h src/resetcontroller.cpp
+    SOURCES src/logincontroller.h src/logincontroller.cpp
 )
 
 if(WIN32)

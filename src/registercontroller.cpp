@@ -1,6 +1,7 @@
 #include "registercontroller.h"
 #include <QObject>
 #include "global.h"
+#include "httpmgr.h"
 
 RegisterController::RegisterController(QObject *parent) : QObject(parent) {
     initHttpHandlers();

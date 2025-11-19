@@ -57,8 +57,14 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
 - **功能**: 用户登录界面
 - **特性**:
   - 用户名和密码输入框
-  - 登录按钮
+  - 实时输入验证系统: 用户名非空验证、密码长度验证(6-15字符)
+  - 错误提示系统: err_tip显示登录结果，自动清除定时器
+  - 密码加密: 调用C++ XOR加密函数保护密码
+  - 表单提交验证: 点击登录前完整验证所有字段
+  - 网络通信: 与LoginController交互发送登录请求
+  - 结果处理: 监听loginResult信号处理登录成功/失败
   - 注册按钮(触发切换到注册界面)
+  - 忘记密码标签(触发切换到重置界面)
   - 美观的UI设计(渐变色背景、圆角边框)
   - 响应式布局
 
@@ -153,6 +159,21 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
   - `sig_http_finish`: 请求完成信号
   - `sig_reg_mod_finish`: 注册模块特定完成信号
   - `sig_reset_mod_finish`: 重置模块特定完成信号
+  
+#### `LoginController` (logincontroller.h/cpp)
+- **功能**: 处理登录相关业务逻辑和网络通信
+- **关键特性**:
+  - 用户登录处理
+  - 密码XOR加密
+  - 网络响应处理
+  - HTTP响应分发
+- **主要方法**:
+  - `loginUser`: 处理登录请求 (接收QML传递的用户数据)
+  - `xorString`: XOR加密算法
+  - `initHttpHandlers`: 初始化HTTP响应处理器
+  - `slot_login_mod_finish`: 处理登录模块HTTP完成信号
+- **信号**:
+  - `loginResult`: 登录请求结果 (返回给QML处理)
 
 #### `RegisterController` (registercontroller.h/cpp)
 - **功能**: 处理注册相关业务逻辑和网络通信

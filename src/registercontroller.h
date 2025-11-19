@@ -1,7 +1,8 @@
 #ifndef REGISTERCONTROLLER_H
 #define REGISTERCONTROLLER_H
 #include <QObject>
-#include "httpmgr.h"
+#include "global.h"
+#include <QMap>
 
 class RegisterController : public QObject
 {

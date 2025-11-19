@@ -69,8 +69,6 @@ Rectangle {
         }
     }
 
-
-
     // 验证用户名
     function checkUserValid() {
         if (regUsernameField.text === "") {
