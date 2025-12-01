@@ -19,19 +19,26 @@ qt_add_qml_module(appSakuraChat
     QML_FILES
         qml/Main.qml
         qml/LoginDialog.qml
-    RESOURCES sakurachat.qrc
-    QML_FILES qml/RegisterDialog.qml
-    SOURCES src/global.h src/global.cpp
-    RESOURCES README.md
-    SOURCES src/singleton.h
-    SOURCES src/httpmgr.h src/httpmgr.cpp
-    SOURCES src/registercontroller.h src/registercontroller.cpp
-    RESOURCES config.ini
-    QML_FILES qml/ClickableLabel.qml
-    QML_FILES qml/TimerButton.qml
-    QML_FILES qml/ResetDialog.qml
-    SOURCES src/resetcontroller.h src/resetcontroller.cpp
-    SOURCES src/logincontroller.h src/logincontroller.cpp
+        qml/RegisterDialog.qml
+        qml/ClickableLabel.qml
+        qml/TimerButton.qml
+        qml/ResetDialog.qml
+    SOURCES
+        src/global.h
+        src/global.cpp
+        src/singleton.h
+        src/httpmgr.h
+        src/httpmgr.cpp
+        src/registercontroller.h
+        src/registercontroller.cpp
+        src/resetcontroller.h
+        src/resetcontroller.cpp
+        src/logincontroller.h
+        src/logincontroller.cpp
+    RESOURCES
+        sakurachat.qrc
+        README.md
+        config.ini
 )
 
 if(WIN32)

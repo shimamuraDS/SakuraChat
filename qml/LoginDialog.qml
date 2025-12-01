@@ -25,24 +25,28 @@ Rectangle {
     signal switchRegister()
     // 切换重置
     signal switchReset()
-
+    Timer {
+        id: tipTimer
+        interval: 3000
+        onTriggered: err_tip.text = ""
+    }
     // 登录处理函数
     function handleLogin() {
         if (!checkUserValid()) return;
         if (!checkPassValid()) return;
 
         var userData = {
-            user: usernameField.text,
-            passwd: loginController.xorString(passwordField.text)
+            email: emailField.text,
+            passwd: passwordField.text
         };
 
         loginController.loginUser(userData);
     }
 
-    // 用户名验证
+    // 邮箱验证
     function checkUserValid() {
-        if (user_edit.text === "") {
-            showTip("用户名不能为空", false);
+        if (emailField.text === "") {
+            showTip("邮箱不能为空", false);
             return false;
         }
         return true;
@@ -50,7 +54,7 @@ Rectangle {
 
     // 密码验证
     function checkPassValid() {
-        var pwd = pass_edit.text;
+        var pwd = passwordField.text;
         if (pwd.length < 6 || pwd.length > 15) {
             showTip("密码长度必须在6-15位之间", false);
             return false;
@@ -70,11 +74,7 @@ Rectangle {
         target: loginController
         function onLoginResult(success, error, message, user) {
             if (!success) {
-                if (error === ErrorCodes.ERR_NETWORK) {
-                    showTip("网络请求错误", false);
-                } else {
-                    showTip(message || "登录失败", false);
-                }
+                showTip(message || "登录失败", false);
                 return;
             }
 
@@ -116,28 +116,29 @@ Rectangle {
         }
 
         Text {
-                id: err_tip
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 20
-                color: "red"
-                visible: text !== ""
-            }
+            id: err_tip
+            Layout.fillWidth: true
+            Layout.preferredHeight: 20
+            color: "red"
+            visible: text !== ""
+            horizontalAlignment: Text.AlignHCenter
+            font.pixelSize: 13
+        }
 
-        // 用户名输入框
+        // 邮箱输入框
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 6
 
             Text {
-                text: "用户名"
+                text: "邮箱"
                 font.pixelSize: 14
                 color: "#555555"
             }
 
             TextField {
-                id: usernameField
-                placeholderText: "请输入用户名"
+                id: emailField
+                placeholderText: "请输入邮箱"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
                 horizontalAlignment: Text.AlignHCenter
@@ -148,7 +149,7 @@ Rectangle {
                 background: Rectangle {
                     radius: 6
                     color: "#f9f9f9"
-                    border.color: usernameField.activeFocus ? "#1DDCC1" : "#cccccc"
+                    border.color: emailField.activeFocus ? "#1DDCC1" : "#cccccc"
                     border.width: 1
                 }
             }

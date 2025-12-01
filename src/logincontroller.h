@@ -11,7 +11,6 @@ public:
     explicit LoginController(QObject *parent = nullptr);
 
     Q_INVOKABLE void loginUser(const QVariantMap &userData);
-    Q_INVOKABLE QString xorString(const QString &input);
 
 signals:
     void loginResult(bool success, int error, const QString &message, const QString &user);
