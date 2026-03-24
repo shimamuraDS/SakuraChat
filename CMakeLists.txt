@@ -23,6 +23,12 @@ qt_add_qml_module(appSakuraChat
         qml/ClickableLabel.qml
         qml/TimerButton.qml
         qml/ResetDialog.qml
+        qml/ChatDialog.qml
+        qml/SidebarIconBtn.qml
+        qml/AddGroupBtn.qml
+        qml/ContactItem.qml
+        qml/MessageBubble.qml
+        qml/ToolbarBtn.qml
     SOURCES
         src/global.h
         src/global.cpp
@@ -35,6 +41,10 @@ qt_add_qml_module(appSakuraChat
         src/resetcontroller.cpp
         src/logincontroller.h
         src/logincontroller.cpp
+        src/tcpmgr.h
+        src/tcpmgr.cpp
+        src/usermgr.h
+        src/usermgr.cpp
     RESOURCES
         sakurachat.qrc
         README.md

@@ -4,8 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: resetDialog
-    width: 400
-    height: 550
+    anchors.fill: parent
     color: "#f0f0f0"
     radius: 10
 

@@ -4,8 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: registerDialog
-    width: 350
-    height: 550
+    anchors.fill: parent
     radius: 12
     color: "#fefefe"
     border.color: "#dddddd"

@@ -59,14 +59,28 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
   - 用户名和密码输入框
   - 实时输入验证系统: 用户名非空验证、密码长度验证(6-15字符)
   - 错误提示系统: err_tip显示登录结果，自动清除定时器
-  - 密码加密: 调用C++ XOR加密函数保护密码
   - 表单提交验证: 点击登录前完整验证所有字段
+  - **TCP连接状态管理**: 
+    - isConnectingTcp 控制UI状态
+    - 连接期间禁用所有输入和按钮
+    - 显示加载指示器
+  - **完整登录流程**: 
+    - HTTP登录验证
+    - 自动发起TCP连接
+    - 发送聊天登录请求
+    - 处理各种错误情况
   - 网络通信: 与LoginController交互发送登录请求
   - 结果处理: 监听loginResult信号处理登录成功/失败
   - 注册按钮(触发切换到注册界面)
   - 忘记密码标签(触发切换到重置界面)
   - 美观的UI设计(渐变色背景、圆角边框)
   - 响应式布局
+- **信号监听**:
+  - `loginController.loginResult`: HTTP登录结果
+  - `loginController.sig_connect_tcp`: TCP连接开始
+  - `tcpMgr.sig_con_success`: TCP连接结果
+  - `tcpMgr.sig_login_failed`: 聊天登录失败
+  - `tcpMgr.sig_switch_chatdlg`: 登录成功，切换界面
 
 #### `RegisterDialog.qml`
 - **功能**: 用户注册界面
@@ -142,6 +156,71 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
 - **用途**:
   - 密码显示/隐藏切换
   - 其他需要状态切换的UI元素
+  
+#### `ChatDialog.qml`
+- **功能**: 聊天主界面，参考 Telegram 视觉风格
+- **布局区域**:
+  - 区域 1：左侧图标切换栏（侧边功能入口）
+  - 区域 2：搜索栏 + 快速创建群聊按钮
+  - 区域 3：近期聊天联系人列表
+  - 区域 4：搜索结果列表（输入时自动切换）
+  - 区域 5：顶部栏（聊天对象名称、头像、在线状态）
+  - 区域 6：聊天记录区域（消息气泡列表）
+  - 区域 7：工具栏区域（附件、表情等）
+  - 区域 8：文本输入区域
+  - 区域 9：发送按钮区域
+- **特性**:
+  - 整体采用深蓝侧边栏 + 白色面板 + 浅蓝灰聊天背景的 Telegram 配色
+  - 使用 RowLayout + ColumnLayout 实现多区域嵌套布局
+  - StackLayout 控制联系人列表与搜索结果的切换
+  - ListView + verticalLayoutDirection: BottomToTop 实现消息从底部向上排列
+  - 内置示例数据模型，后续对接 C++ 数据源
+  - sendMessage() 函数处理发送逻辑，预留 TcpMgr 接口
+
+#### `SidebarIconBtn.qml`
+- **功能**: 左侧图标栏按钮组件，替代原 Qt Widgets 中的 ClickedBtn C++ 自定义类
+- **特性**:
+  - 支持 normal / hover / press 三态，通过 MouseArea 事件驱动，无需 C++ 代码
+  - Behavior on color 实现平滑颜色过渡动画（120ms）
+  - 激活状态显示左侧白色指示条
+  - 支持 ToolTip 悬浮提示
+  - cursorShape: Qt.PointingHandCursor 设置手型鼠标指针
+
+#### `AddGroupBtn.qml`
+- **功能**: 搜索栏旁的快速创建群聊按钮（+），对应原教程中的 add_btn
+- **特性**:
+  - 支持 normal / hover / press 三态，完全替代原 ClickedBtn + QSS 三态图片方案
+  - normal 状态显示灰色边框圆形按钮，hover/press 状态填充蓝色
+  - 颜色与文字颜色均有 Behavior 过渡动画
+  - 无需外部图片资源，无需 QSS 文件
+
+#### `ContactItem.qml`
+- **功能**: 近期聊天联系人列表项组件（区域 3）
+- **特性**:
+  - 显示头像（彩色圆形首字母）、联系人名称、最后一条消息、时间戳
+  - 未读消息角标（蓝色圆形数字）
+  - 悬浮高亮背景，Behavior 平滑过渡
+
+#### `MessageBubble.qml`
+- **功能**: 聊天记录消息气泡组件（区域 6）
+- **特性**:
+  - isSelf 属性控制气泡左右对齐（自己发送靠右，对方靠左）
+  - 自己发送气泡为浅绿色（#effdde），对方为白色，风格与 Telegram 一致
+  - 气泡宽度自适应文字内容，最大不超过聊天区域 72%
+  - 右下角显示发送时间戳
+
+#### `SendBtn.qml`
+- **功能**: 消息发送按钮（区域 9）
+- **特性**:
+  - 蓝色圆形按钮，三态颜色变化
+  - 按下时图标缩放动画（scale 0.88）提供点击反馈
+  - 发射 clicked() 信号供 ChatDialog 调用
+
+#### `ToolbarBtn.qml`
+- **功能**: 工具栏通用图标按钮（区域 7）
+- **特性**:
+  - 悬浮时显示浅灰圆角背景
+  - 统一尺寸 32×32，支持任意 Unicode 图标
 
 ### 3. C++核心类
 
@@ -164,16 +243,18 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
 - **功能**: 处理登录相关业务逻辑和网络通信
 - **关键特性**:
   - 用户登录处理
-  - 密码XOR加密
-  - 网络响应处理
-  - HTTP响应分发
+  - HTTP响应处理
+  - TCP连接管理
+  - 聊天服务器登录
 - **主要方法**:
   - `loginUser`: 处理登录请求 (接收QML传递的用户数据)
-  - `xorString`: XOR加密算法
   - `initHttpHandlers`: 初始化HTTP响应处理器
   - `slot_login_mod_finish`: 处理登录模块HTTP完成信号
+  - `slot_tcp_con_finish`: 处理TCP连接成功/失败
+  - `slot_login_failed`: 处理聊天登录失败
 - **信号**:
   - `loginResult`: 登录请求结果 (返回给QML处理)
+  - `sig_connect_tcp`: 发起TCP连接 (内部信号，发送给TcpMgr)
 
 #### `RegisterController` (registercontroller.h/cpp)
 - **功能**: 处理注册相关业务逻辑和网络通信
@@ -206,6 +287,26 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
 - **信号**:
   - `verifyCodeResult`: 验证码请求结果
   - `resetResult`: 重置请求结果
+  
+#### `TcpMgr` (tcpmgr.h/cpp)
+- **功能**: 管理TCP长连接，处理与聊天服务器的通信
+- **关键特性**:
+  - 单例模式实现
+  - TCP连接管理
+  - 消息发送和接收
+  - 线程安全的数据发送
+  - 网络字节序处理
+- **主要方法**:
+  - `slot_tcp_connect`: 连接到聊天服务器
+  - `slot_send_data`: 发送数据到聊天服务器 (线程安全)
+  - `slot_connected`: 处理连接成功
+  - `slot_disconnected`: 处理连接断开
+  - `slot_recv_data`: 接收服务器数据
+- **信号**:
+  - `sig_con_success`: TCP连接成功/失败信号
+  - `sig_send_data`: 发送数据信号 (内部使用，保证线程安全)
+  - `sig_switch_chatdlg`: 登录成功，切换到聊天界面
+  - `sig_login_failed`: 聊天登录失败信号
 
 #### `Singleton` (singleton.h)
 - **功能**: 单例模式模板类
@@ -220,11 +321,16 @@ SakuraChat 是一个简洁美观的即时通讯应用，提供完整的用户注
 ### 4. 辅助文件
 
 #### `global.h/cpp`
-- **功能**: 全局枚举定义
+- **功能**: 全局枚举定义和结构体
 - **定义内容**:
-  - `ReqId`: 请求ID枚举 (包含ID_REG_USER)
-  - `ErrorCodes`: 错误代码枚举 (包含SUCCESS等)
-  - `Modules`: 模块枚举 (包含REGISTERMOD)
+  - `ReqId`: 请求ID枚举 (包含ID_REG_USER, ID_LOGIN_USER, ID_CHAT_LOGIN等)
+  - `ErrorCodes`: 错误代码枚举 (包含SUCCESS, ERR_NETWORK, ERR_JSON等)
+  - `Modules`: 模块枚举 (包含REGISTERMOD, LOGINMOD等)
+  - `ServerInfo`: 服务器信息结构体
+    - `Uid`: 用户ID
+    - `Host`: 聊天服务器地址
+    - `Port`: 聊天服务器端口
+    - `Token`: 认证令牌
 
 #### `README.md`
 - **功能**: 项目文档
@@ -251,14 +357,28 @@ SakuraChat/
 │   ├── singleton.h        # 单例模式模板
 │   ├── httpmgr.h          # HTTP管理器头文件
 │   ├── httpmgr.cpp        # HTTP管理器实现
+│   ├── tcpmgr.h           # TCP管理器头文件
+│   ├── tcpmgr.cpp         # TCP管理器实现
+│   ├── logincontroller.h  # 登录控制器头文件
+│   ├── logincontroller.cpp # 登录控制器实现
 │   ├── registercontroller.h # 注册控制器头文件
-│   └── registercontroller.cpp # 注册控制器实现
+│   ├── registercontroller.cpp # 注册控制器实现
+│   ├── resetcontroller.h  # 重置控制器头文件
+│   └── resetcontroller.cpp # 重置控制器实现
 ├── qml/
 │   ├── Main.qml           # 主窗口和界面切换逻辑
-│   ├── LoginDialog.qml    # 登录界面
+│   ├── LoginDialog.qml    # 登录界面(完整TCP连接功能)
 │   ├── RegisterDialog.qml # 注册界面(完整功能实现)
+│   ├── ResetDialog.qml    # 重置界面(完整功能实现)
 │   ├── TimerButton.qml    # 独立倒计时按钮组件
-│   └── ClickableLable.qml # 可点击标签组件
+│   ├── ClickableLable.qml # 可点击标签组件
+│   ├── ChatDialog.qml     # 聊天主界面
+│   ├── SidebarIconBtn.qml # 侧边栏图标按钮（替代 ClickedBtn C++）
+│   ├── AddGroupBtn.qml    # 创建群聊按钮（add_btn 三态）
+│   ├── ContactItem.qml    # 联系人列表项
+│   ├── MessageBubble.qml  # 消息气泡
+│   ├── SendBtn.qml        # 发送按钮
+│   └── ToolbarBtn.qml     # 工具栏按钮
 └── sakurachat.qrc         # 资源文件
 ```
 
@@ -307,11 +427,58 @@ SakuraChat/
    - 响应数据解析
    - 结果通过信号回调到QML
 
+### 用户登录流程 (QML + C++协作)
+1. **用户输入验证** (QML):
+   - 邮箱非空检查
+   - 密码长度验证(6-15字符)
+   - 验证失败立即显示错误提示
+
+2. **HTTP登录请求** (QML → C++):
+   - QML调用xorString加密密码
+   - 构造用户数据并调用loginController.loginUser
+   - 禁用登录按钮，显示加载状态
+
+3. **HTTP登录处理** (C++):
+   - LoginController发送HTTP请求到Gate服务器
+   - 接收服务器响应，解析用户信息
+   - 提取聊天服务器信息(host, port, uid, token)
+   - 保存uid和token到私有成员变量
+   - 发送loginResult信号通知QML HTTP登录成功
+
+4. **发起TCP连接** (C++):
+   - LoginController发送sig_connect_tcp信号
+   - TcpMgr接收信号并连接聊天服务器
+   - QML接收信号并更新UI提示
+
+5. **TCP连接建立** (C++):
+   - TcpMgr连接成功后发送sig_con_success信号
+   - LoginController接收信号，构造聊天登录JSON
+   - 使用保存的uid和token构造请求
+   - 通过TcpMgr发送聊天登录请求
+
+6. **聊天登录处理** (C++):
+   - TcpMgr发送数据到聊天服务器
+   - 等待服务器响应
+   - 成功: 发送sig_switch_chatdlg信号
+   - 失败: 发送sig_login_failed信号
+
+7. **结果反馈** (QML):
+   - 监听各种信号更新UI状态
+   - 显示相应的提示信息
+   - 恢复按钮状态或切换到聊天界面
+
 ### 验证码获取流程
 1. 用户填写邮箱地址
 2. 系统验证邮箱格式
 3. 请求验证码
 4. 显示获取结果
+
+### 聊天主界面 (ChatDialog)
+1. 界面布局与切换：
+  登录成功后，TcpMgr 发送 sig_switch_chatdlg 信号，Main.qml 监听后将 currentView 切换为 "chat"，通过 StackLayout 跳转到 ChatDialog
+2. 按钮三态实现（替代 ClickedBtn）：
+  原 Qt Widgets 方案需继承 QPushButton、重写 enterEvent/mousePressEvent/mouseReleaseEvent、编写 QSS 三态样式、在构造函数调用 SetState()
+  QML 方案通过 MouseArea 的 onEntered/onExited/onPressed/onReleased 驱动 btnState 属性，color 绑定三态颜色表达式，Behavior on color 添加过渡动画，所有逻辑内联在组件文件中，无需任何 C++ 代码和外部样式文件
 
 ### 网络通信架构
 ```
@@ -325,6 +492,33 @@ QML界面 -> RegisterController -> HttpMgr -> 服务器
 3. **异步响应处理**: HttpMgr处理HTTP响应
 4. **结果回调**: 通过信号槽将结果返回QML
 5. **界面更新**: QML接收结果并更新UI状态
+
+### TCP连接架构
+```
+QML LoginDialog          C++ LoginController        C++ TcpMgr
+      |                          |                        |
+      | handleLogin()            |                        |
+      |------------------------->|                        |
+      |                          | HTTP Login Request     |
+      |                          |----------------------->| Gate Server
+      |                          |                        |
+      | loginResult(success)     | HTTP Response          |
+      |<-------------------------|                        |
+      |                          |                        |
+      | sig_connect_tcp          |                        |
+      |------------------------->|----------------------->| Chat Server
+      |                          |                        |
+      | sig_con_success(true)    | TCP Connected          |
+      |<--------------------------------------------------|
+      |                          |                        |
+      |                          | Send Chat Login        |
+      |                          | (uid + token)          |
+      |                          |----------------------->| Chat Server
+      |                          |                        |
+      | sig_switch_chatdlg       | Login Success          |
+      |<--------------------------------------------------|
+```
+
 
 ### UI特性
 - 渐变色背景

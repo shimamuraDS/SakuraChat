@@ -4,8 +4,7 @@ import QtQuick.Layouts
 
 Rectangle {
     id: loginDialog
-    width: 350
-    height: 550
+    anchors.fill: parent
     radius: 12
     color: "#fefefe"
     border.color: "#dddddd"
@@ -25,11 +24,60 @@ Rectangle {
     signal switchRegister()
     // 切换重置
     signal switchReset()
+
+    // TCP连接状态
+    property bool isConnectingTcp: false
+
     Timer {
         id: tipTimer
         interval: 3000
         onTriggered: err_tip.text = ""
     }
+
+    // 监听LoginController的TCP连接信号
+    Connections {
+        target: loginController
+
+        function onSig_connect_tcp(serverInfo) {
+            console.log("开始连接聊天服务器...")
+            isConnectingTcp = true
+            showTip("正在连接聊天服务器...", true)
+
+            // 通知TcpMgr连接服务器
+            tcpMgr.slot_tcp_connect(serverInfo)
+        }
+    }
+
+    // 监听TcpMgr的连接结果信号
+    Connections {
+        target: tcpMgr
+
+        function onSig_con_success(success) {
+            if (success) {
+                console.log("聊天服务连接成功")
+                showTip("聊天服务连接成功，正在登录...", true)
+            } else {
+                console.log("聊天服务连接失败")
+                showTip("网络异常", false)
+                isConnectingTcp = false
+                loginBtn.enabled = true
+            }
+        }
+
+        function onSig_login_failed(err) {
+            console.log("聊天登录失败，错误码:", err)
+            showTip("聊天登录失败", false)
+            isConnectingTcp = false
+            loginBtn.enabled = true
+        }
+
+        function onSig_switch_chatdlg() {
+            console.log("登录成功，准备切换到聊天界面")
+            showTip("登录成功！", true)
+            // TODO: 切换到聊天主界面
+        }
+    }
+
     // 登录处理函数
     function handleLogin() {
         if (!checkUserValid()) return;
