@@ -29,9 +29,9 @@ qt_add_qml_module(appSakuraChat
         qml/ContactItem.qml
         qml/MessageBubble.qml
         qml/ToolbarBtn.qml
+        qml/ChatUserWid.qml
     SOURCES
         src/global.h
-        src/global.cpp
         src/singleton.h
         src/httpmgr.h
         src/httpmgr.cpp
@@ -45,10 +45,19 @@ qt_add_qml_module(appSakuraChat
         src/tcpmgr.cpp
         src/usermgr.h
         src/usermgr.cpp
+        src/customizeedit.h
+        src/customizeedit.cpp
+        src/configmanager.h
+        src/configmanager.cpp
+        src/chatuserlist.h
+        src/chatuserlist.cpp
     RESOURCES
         sakurachat.qrc
         README.md
+        DevDoc.md
         config.ini
+        QML_FILES qml/SendBtn.qml
+        RESOURCES DevDoc.md
 )
 
 if(WIN32)

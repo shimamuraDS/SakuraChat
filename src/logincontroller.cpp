@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QDebug>
 #include "tcpmgr.h"
+#include "configmanager.h"
 
 LoginController::LoginController(QObject *parent)
     : QObject(parent)
@@ -27,10 +28,10 @@ void LoginController::loginUser(const QVariantMap &userData)
     json_obj["email"] = userData["email"].toString();
     json_obj["passwd"] = userData["passwd"].toString();
 
-    qDebug() << "Sending login request to:" << gate_url_prefix + "/user_login";
+    qDebug() << "Sending login request to:" << ConfigManager::instance().gateUrlPrefix() + "/user_login";
 
     HttpMgr::GetInstance()->PostHttpReq(
-        QUrl(gate_url_prefix + "/user_login"),
+        QUrl(ConfigManager::instance().gateUrlPrefix() + "/user_login"),
         json_obj,
         ReqId::ID_LOGIN_USER,
         Modules::LOGINMOD

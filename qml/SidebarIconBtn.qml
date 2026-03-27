@@ -2,17 +2,15 @@
 import QtQuick
 import QtQuick.Controls
 
-Item {
+AbstractButton {
     id: root
     width: 48; height: 48
 
-    property string icon: ""
+    property string iconText: ""
     property string tooltip: ""
     property bool isActive: false
 
-    // 三态：normal / hover / press
-    // （对应原 ClickedBtn 的 normal / hover / press 三态）
-    property string btnState: "normal"
+    hoverEnabled: true
 
     Rectangle {
         id: bg
@@ -20,8 +18,8 @@ Item {
         width: 40; height: 40
         radius: 12
         color: {
-            if (root.btnState === "press")  return Qt.rgba(1,1,1,0.25)
-            if (root.btnState === "hover")  return Qt.rgba(1,1,1,0.15)
+            if (root.pressed)  return Qt.rgba(1,1,1,0.25)
+            if (root.hovered)  return Qt.rgba(1,1,1,0.15)
             if (root.isActive)              return Qt.rgba(1,1,1,0.12)
             return "transparent"
         }
@@ -32,7 +30,7 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: root.icon
+            text: root.iconText
             font.pixelSize: 22
         }
     }
@@ -47,19 +45,9 @@ Item {
         color: "#ffffff"
     }
 
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+    ToolTip.visible: hovered
+    ToolTip.text: root.tooltip
+    ToolTip.delay: 600
 
-        onEntered:  root.btnState = "hover"
-        onExited:   root.btnState = "normal"
-        onPressed:  root.btnState = "press"
-        onReleased: root.btnState = hovered ? "hover" : "normal"
-        onClicked:  root.isActive = true
-
-        ToolTip.visible: containsMouse
-        ToolTip.text:    root.tooltip
-        ToolTip.delay:   600
-    }
+    onClicked: root.isActive = true
 }

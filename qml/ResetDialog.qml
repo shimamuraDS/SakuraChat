@@ -10,107 +10,86 @@ Rectangle {
 
     signal switchLogin()
 
-    // 错误提示映射
-    property var tipErrors: ({})
-
-    // 验证逻辑
-    function checkUserValid() {
-        if (userEdit.text === "") {
-            addTipErr("TIP_USER_ERR", "用户名不能为空")
-            return false
-        }
-        delTipErr("TIP_USER_ERR")
-        return true
+    // 统一的提示函数，替代原版臃肿的 tipErrors 字典逻辑
+    function showTip(message, isSuccess = false) {
+        errTip.text = message
+        errTip.color = isSuccess ? "#28a745" : "#dc3545"
     }
 
-    function checkEmailValid() {
-        var email = emailEdit.text
-        var regex = /(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+/
-        if (!regex.test(email)) {
-            addTipErr("TIP_EMAIL_ERR", "邮箱地址不正确")
+    // 集中式、线性的表单校验拦截器
+    function validateForm() {
+        const emailRegex = /^[\w\.-]+@[\w\.-]+\.\w+$/
+        const passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/
+
+        if (userEdit.text.trim() === "") {
+            showTip("用户名不能为空", false)
             return false
         }
-        delTipErr("TIP_EMAIL_ERR")
-        return true
-    }
+        if (!emailRegex.test(emailEdit.text.trim())) {
+            showTip("邮箱地址不正确", false)
+            return false
+        }
+        if (verifyEdit.text.trim() === "") {
+            showTip("验证码不能为空", false)
+            return false
+        }
 
-    function checkPassValid() {
-        var pass = pwdEdit.text
+        const pass = pwdEdit.text
         if (pass.length < 6 || pass.length > 15) {
-            addTipErr("TIP_PWD_ERR", "密码长度应为6~15")
+            showTip("密码长度应为6~15", false)
             return false
         }
-        var regex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/
-        if (!regex.test(pass)) {
-            addTipErr("TIP_PWD_ERR", "不能包含非法字符")
+        if (!passRegex.test(pass)) {
+            showTip("密码不能包含非法字符", false)
             return false
         }
-        delTipErr("TIP_PWD_ERR")
+
+        showTip("", true) // 校验通过，清空错误提示
         return true
     }
 
-    function checkVerifyValid() {
-        if (verifyEdit.text === "") {
-            addTipErr("TIP_VERIFY_ERR", "验证码不能为空")
-            return false
-        }
-        delTipErr("TIP_VERIFY_ERR")
-        return true
-    }
-
-    function addTipErr(key, tips) {
-        tipErrors[key] = tips
-        showTip(tips, false)
-    }
-
-    function delTipErr(key) {
-        delete tipErrors[key]
-        var keys = Object.keys(tipErrors)
-        if (keys.length === 0) {
-            errTip.text = ""
-            return
-        }
-        showTip(tipErrors[keys[0]], false)
-    }
-
-    function showTip(str, isOk) {
-        errTip.text = str
-        errTip.color = isOk ? "#28a745" : "#dc3545"
-    }
-
-    // 获取验证码
+    // 获取验证码逻辑
     function onVerifyBtnClicked() {
-        if (!checkEmailValid()) {
+        const emailRegex = /^[\w\.-]+@[\w\.-]+\.\w+$/
+        if (!emailRegex.test(emailEdit.text.trim())) {
+            showTip("请输入正确的邮箱以获取验证码", false)
             return
         }
-        resetController.getVerifyCode(emailEdit.text)
+
+        // 调用 C++ 后端获取验证码
+        resetController.getVerifyCode(emailEdit.text.trim())
+
+        // 启动倒计时 (调用你在 TimerButton 中定义的函数)
+        verifyBtn.startCountdown()
     }
 
-    // 确认重置
+    // 确认重置逻辑
     function onSureBtnClicked() {
-        if (!checkUserValid() || !checkEmailValid() ||
-            !checkPassValid() || !checkVerifyValid()) {
+        // 触发集中校验，失败则直接拦截
+        if (!validateForm()) {
             return
         }
 
         resetController.resetPassword(
-            userEdit.text,
-            emailEdit.text,
+            userEdit.text.trim(),
+            emailEdit.text.trim(),
             pwdEdit.text,
-            verifyEdit.text
+            verifyEdit.text.trim()
         )
     }
 
-    // 连接C++信号
+    // 监听 C++ 后端信号
     Connections {
         target: resetController
+
         function onVerifyCodeResult(success, message) {
             showTip(message, success)
         }
+
         function onResetResult(success, message) {
             showTip(message, success)
             if (success) {
-                // 延迟返回登录界面
+                // 成功后延迟 1.5 秒自动返回登录界面
                 returnTimer.start()
             }
         }
@@ -122,6 +101,7 @@ Rectangle {
         onTriggered: resetDialog.switchLogin()
     }
 
+    // ---------------- UI 布局 ----------------
     ColumnLayout {
         anchors.centerIn: parent
         width: parent.width * 0.85
@@ -138,14 +118,13 @@ Rectangle {
             id: userEdit
             placeholderText: "用户名"
             Layout.fillWidth: true
-            onEditingFinished: checkUserValid()
+            // 删除了繁琐的 onEditingFinished
         }
 
         TextField {
             id: emailEdit
             placeholderText: "邮箱"
             Layout.fillWidth: true
-            onEditingFinished: checkEmailValid()
         }
 
         RowLayout {
@@ -154,7 +133,6 @@ Rectangle {
                 id: verifyEdit
                 placeholderText: "验证码"
                 Layout.fillWidth: true
-                onEditingFinished: checkVerifyValid()
             }
             TimerButton {
                 id: verifyBtn
@@ -169,15 +147,18 @@ Rectangle {
             placeholderText: "新密码"
             echoMode: TextInput.Password
             Layout.fillWidth: true
-            onEditingFinished: checkPassValid()
         }
 
+        // 统一的错误提示文本框
         Text {
             id: errTip
             Layout.fillWidth: true
+            Layout.preferredHeight: 20
             Layout.alignment: Qt.AlignHCenter
             horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
             wrapMode: Text.WordWrap
+            font.pixelSize: 13
         }
 
         Button {

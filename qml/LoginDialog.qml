@@ -5,14 +5,13 @@ import QtQuick.Layouts
 Rectangle {
     id: loginDialog
     anchors.fill: parent
-    radius: 12
-    color: "#fefefe"
-    border.color: "#dddddd"
+    radius: 16
+    border.color: "#ebebeb"
     border.width: 1
     gradient: Gradient {
         GradientStop {
             position: 0.0;
-            color: "#e8f0fe"
+            color: "#f0f8ff"
         }
         GradientStop {
             position: 1.0;
@@ -32,6 +31,45 @@ Rectangle {
         id: tipTimer
         interval: 3000
         onTriggered: err_tip.text = ""
+    }
+
+    // 显示提示信息
+    function showTip(message, success) {
+        err_tip.text = message;
+        err_tip.color = success ? "#10b981" : "#ef4444";
+        tipTimer.restart();
+    }
+
+    // 登录处理函数
+    function handleLogin() {
+        if (!checkUserValid()) return;
+        if (!checkPassValid()) return;
+
+        var userData = {
+            email: emailField.text,
+            passwd: passwordField.text
+        };
+
+        loginController.loginUser(userData);
+    }
+
+    // 邮箱验证
+    function checkUserValid() {
+        if (emailField.text === "") {
+            showTip("邮箱不能为空", false);
+            return false;
+        }
+        return true;
+    }
+
+    // 密码验证
+    function checkPassValid() {
+        var pwd = passwordField.text;
+        if (pwd.length < 6 || pwd.length > 15) {
+            showTip("密码长度必须在6-15位之间", false);
+            return false;
+        }
+        return true;
     }
 
     // 监听LoginController的TCP连接信号
@@ -76,45 +114,6 @@ Rectangle {
             showTip("登录成功！", true)
             // TODO: 切换到聊天主界面
         }
-    }
-
-    // 登录处理函数
-    function handleLogin() {
-        if (!checkUserValid()) return;
-        if (!checkPassValid()) return;
-
-        var userData = {
-            email: emailField.text,
-            passwd: passwordField.text
-        };
-
-        loginController.loginUser(userData);
-    }
-
-    // 邮箱验证
-    function checkUserValid() {
-        if (emailField.text === "") {
-            showTip("邮箱不能为空", false);
-            return false;
-        }
-        return true;
-    }
-
-    // 密码验证
-    function checkPassValid() {
-        var pwd = passwordField.text;
-        if (pwd.length < 6 || pwd.length > 15) {
-            showTip("密码长度必须在6-15位之间", false);
-            return false;
-        }
-        return true;
-    }
-
-    // 显示提示信息
-    function showTip(message, success) {
-        err_tip.text = message;
-        err_tip.color = success ? "green" : "red";
-        tipTimer.restart();
     }
 
     // 监听登录结果

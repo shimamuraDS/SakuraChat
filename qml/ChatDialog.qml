@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import SakuraChat
 
 Rectangle {
     id: chatDialog
@@ -10,28 +11,28 @@ Rectangle {
     color: "#ffffff"
 
     // ───────────────────────────────────────────────────
-    // 颜色常量（参考 Telegram 配色）
+    // 颜色常量
     // ───────────────────────────────────────────────────
-    readonly property color sidebarBg:      "#2b5278"  // 深蓝侧边栏
-    readonly property color panelBg:        "#ffffff"  // 联系人面板白底
-    readonly property color panelBorder:    "#e4e4e4"  // 面板分隔线
-    readonly property color searchBg:       "#f1f3f4"  // 搜索框背景
-    readonly property color accentBlue:     "#2b9af3"  // Telegram 蓝
-    readonly property color msgBubbleSelf:  "#effdde"  // 自己发送气泡（浅绿）
-    readonly property color msgBubbleOther: "#ffffff"  // 对方消息气泡
+    readonly property color sidebarBg:      "#2b5278"
+    readonly property color panelBg:        "#ffffff"
+    readonly property color panelBorder:    "#e4e4e4"
+    readonly property color searchBg:       "#f1f3f4"
+    readonly property color accentBlue:     "#2b9af3"
+    readonly property color msgBubbleSelf:  "#effdde"
+    readonly property color msgBubbleOther: "#ffffff"
     readonly property color textPrimary:    "#000000"
     readonly property color textSecondary:  "#707070"
-    readonly property color hoverOverlay:   "#1a000000" // 悬浮遮罩
+    readonly property color hoverOverlay:   "#1a000000"
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
         // ═══════════════════════════════════════════════
-        // 区域 1：左侧图标栏（宽 60px）
+        // 区域 1：左侧侧边栏
         // ═══════════════════════════════════════════════
         Rectangle {
-            width: 60
+            Layout.preferredWidth: 60
             Layout.fillHeight: true
             color: chatDialog.sidebarBg
 
@@ -39,36 +40,32 @@ Rectangle {
                 anchors.top: parent.top
                 anchors.topMargin: 12
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 4
+                spacing: 12
 
-                // 头像
+                // 头像 [cite: 5, 6, 7]
                 Rectangle {
                     width: 40; height: 40
                     radius: 20
                     color: chatDialog.accentBlue
-                    anchors.horizontalCenter: parent.horizontalCenter
                     Text {
                         anchors.centerIn: parent
                         text: "我"
                         color: "#ffffff"
-                        font.pixelSize: 14
-                        font.bold: true
+                        font.pixelSize: 14; font.bold: true
                     }
                 }
 
-                Item { width: 1; height: 8 }
-
-                // 侧边功能按钮列表
+                // 侧边功能按钮列表 [cite: 9, 10, 11]
                 Repeater {
                     model: [
-                        { icon: "💬", tip: "聊天",   active: true  },
+                        { icon: "💬", tip: "聊天", active: true },
                         { icon: "👥", tip: "联系人", active: false },
-                        { icon: "📞", tip: "通话",   active: false },
-                        { icon: "⚙️", tip: "设置",  active: false },
+                        { icon: "📞", tip: "通话", active: false },
+                        { icon: "⚙️", tip: "设置", active: false }
                     ]
                     delegate: SidebarIconBtn {
-                        icon:     modelData.icon
-                        tooltip:  modelData.tip
+                        iconText: modelData.icon
+                        tooltip: modelData.tip
                         isActive: modelData.active
                     }
                 }
@@ -76,309 +73,306 @@ Rectangle {
         }
 
         // ═══════════════════════════════════════════════
-        // 区域 2-4：联系人 + 搜索面板（宽 300px）
+        // 区域 2-4：联系人 + 搜索面板 [cite: 13, 14, 15]
         // ═══════════════════════════════════════════════
         Rectangle {
-            width: 300
+            Layout.preferredWidth: 300
             Layout.fillHeight: true
             color: chatDialog.panelBg
 
-            // 右侧细分隔线
+            // 右侧分隔线 [cite: 13, 14]
             Rectangle {
                 anchors.right: parent.right
                 width: 1; height: parent.height
                 color: chatDialog.panelBorder
+                z: 2
             }
 
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 0
 
-                // ── 区域 2：搜索栏 ──────────────────────
+                // 搜索栏 [cite: 15, 16]
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 56
-                    color: chatDialog.panelBg
+                    Layout.preferredHeight: 48
+                    color: "#ffffff"
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
+                        anchors.margins: 8
+                        spacing: 6
 
-                        // 搜索输入框
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 36
-                            radius: 18
+                            Layout.fillHeight: true
+                            radius: 4
                             color: chatDialog.searchBg
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 8
+                                anchors.margins: 6
                                 spacing: 6
 
-                                Text {
-                                    text: "🔍"
-                                    font.pixelSize: 14
-                                    color: chatDialog.textSecondary
+                                Image {
+                                    source: "qrc:/res/chat_search.png"
+                                    Layout.preferredWidth: 18; Layout.preferredHeight: 18
                                 }
-                                TextInput {
+
+                                TextField {
                                     id: searchInput
                                     Layout.fillWidth: true
-                                    // placeholderText: "搜索"
+                                    placeholderText: "搜索"
                                     font.pixelSize: 14
                                     color: chatDialog.textPrimary
-                                    verticalAlignment: TextInput.AlignVCenter
+                                    background: null // 去除默认背景
+                                    onTextChanged: searchModel.filterText = text // 建议后续移步 C++ 过滤
+                                }
 
-                                    // 输入时切换到搜索结果面板
-                                    onTextChanged: {
-                                        contactStack.currentIndex = (text.length > 0) ? 1 : 0
+                                Image {
+                                    source: "qrc:/res/clear_search.png"
+                                    Layout.preferredWidth: 16; Layout.preferredHeight: 16
+                                    visible: searchInput.text.length > 0
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            searchInput.clear()
+                                            searchModel.filterText = ""
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        // 区域 2：+ 快速创建群聊按钮
                         AddGroupBtn {
-                            id: addGroupBtn
-                            width: 36; height: 36
+                            Layout.preferredWidth: 32; Layout.preferredHeight: 32
                         }
                     }
                 }
 
-                // ── 区域 3 / 4：联系人列表 & 搜索结果（StackLayout 切换）──
-                StackLayout {
-                    id: contactStack
+                // 联系人列表 [cite: 31, 32]
+                ChatUserList { id: chatModel }
+
+                ListView {
+                    id: chatListView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    currentIndex: 0
+                    model: chatModel
+                    clip: true
+                    spacing: 2
 
-                    // 区域 3：近期聊天列表
-                    ListView {
-                        id: recentList
-                        clip: true
-                        model: chatModel
-                        delegate: ContactItem {}
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                    }
-
-                    // 区域 4：搜索结果列表
-                    ListView {
-                        id: searchResultList
-                        clip: true
-                        model: searchResultModel
-                        // delegate: SearchResultItem {}
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                        header: Item {
-                            width: parent.width; height: 8
-                        }
-                        footer: Item {
-                            width: parent.width; height: 8
+                    delegate: ChatUserWid {
+                        width: chatListView.width
+                        userName: model.name
+                        headImg: model.head
+                        lastMsg: model.lastMsg
+                        msgTime: model.time
+                        // 警告: 下方的 visible 过滤极耗性能，建议后续由 QSortFilterProxyModel 替代 [cite: 34, 35]
+                        visible: searchInput.text === "" ||
+                                 model.name.toLowerCase().includes(searchInput.text.toLowerCase())
+                        onClicked: {
+                            console.log("点击了用户：" + model.name)
+                            mainStack.currentIndex = 1 // 切换到聊天页面
                         }
                     }
+
+                    onAtYEndChanged: {
+                        if (atYEnd && !chatModel.isLoading()) {
+                            chatModel.loadMoreItems(10)
+                        }
+                    }
+
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                }
+            }
+
+            // 悬浮的加载遮罩 [cite: 41, 42, 43]
+            Rectangle {
+                anchors.fill: parent
+                color: "#80ffffff"
+                visible: chatModel.isLoading()
+                z: 5
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    BusyIndicator { width: 32; height: 32 }
+                    Text { text: "加载中..."; color: "#8c8c8c"; font.pixelSize: 12 }
                 }
             }
         }
 
         // ═══════════════════════════════════════════════
-        // 区域 5-9：聊天主区域
+        // 区域 5-9：主聊天区域 [cite: 48, 49]
         // ═══════════════════════════════════════════════
-        ColumnLayout {
+        StackLayout {
+            id: mainStack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 0
+            currentIndex: 0 // 0: 默认空白页, 1: 真实聊天页
 
-            // ── 区域 5：顶部栏（联系人名称 + 头像）──────
+            // 页面 0: 尚未选择聊天时的占位页
             Rectangle {
-                Layout.fillWidth: true
-                height: 56
-                color: "#ffffff"
-
-                // 底部分隔线
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width; height: 1
-                    color: chatDialog.panelBorder
+                color: "#f0f4f8"
+                Text {
+                    anchors.centerIn: parent
+                    text: "请选择一个联系人开始聊天"
+                    color: chatDialog.textSecondary
+                    font.pixelSize: 16
                 }
+            }
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
+            // 页面 1: 真实聊天页
+            ColumnLayout {
+                spacing: 0
 
-                    // 头像
+                // 区域 5：顶部栏 [cite: 51, 52]
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 56
+                    color: "#ffffff"
+
                     Rectangle {
-                        width: 36; height: 36
-                        radius: 18
-                        color: "#7bc67e"
-                        Text {
-                            anchors.centerIn: parent
-                            text: "A"
-                            color: "#ffffff"
-                            font.pixelSize: 14
-                            font.bold: true
-                        }
+                        anchors.bottom: parent.bottom
+                        width: parent.width; height: 1
+                        color: chatDialog.panelBorder
                     }
 
-                    // 名称 + 在线状态
-                    Column {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        Text {
-                            text: "Alice"
-                            font.pixelSize: 15
-                            font.bold: true
-                            color: chatDialog.textPrimary
-                        }
-                        Text {
-                            text: "在线"
-                            font.pixelSize: 12
-                            color: chatDialog.accentBlue
-                        }
-                    }
-
-                    // 右侧工具图标（搜索、更多）
-                    Row {
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 16
                         spacing: 12
-                        Repeater {
-                            model: ["🔍", "⋮"]
-                            delegate: Text {
-                                text: modelData
-                                font.pixelSize: 18
-                                color: chatDialog.textSecondary
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
+
+                        Rectangle {
+                            Layout.preferredWidth: 36; Layout.preferredHeight: 36
+                            radius: 18
+                            color: "#7bc67e"
+                            Text {
+                                anchors.centerIn: parent
+                                text: "A"
+                                color: "#ffffff"
+                                font.pixelSize: 14; font.bold: true
+                            }
+                        }
+
+                        Column {
+                            Layout.fillWidth: true
+                            Text { text: "Alice"; font.pixelSize: 15; font.bold: true; color: chatDialog.textPrimary }
+                            Text { text: "在线"; font.pixelSize: 12; color: chatDialog.accentBlue }
+                        }
+
+                        Row {
+                            spacing: 16
+                            Repeater {
+                                model: ["🔍", "⋮"]
+                                delegate: Text {
+                                    text: modelData
+                                    font.pixelSize: 18
+                                    color: chatDialog.textSecondary
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // ── 区域 6：聊天记录区域 ─────────────────────
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "#f0f4f8"   // Telegram 聊天背景浅蓝灰
-
-                ListView {
-                    id: messageList
-                    anchors.fill: parent
-                    anchors.margins: 0
-                    clip: true
-                    model: messageModel
-                    delegate: MessageBubble {}
-                    verticalLayoutDirection: ListView.BottomToTop
-                    spacing: 4
-
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AsNeeded
-                    }
-                }
-            }
-
-            // ── 区域 7：工具栏 ───────────────────────────
-            Rectangle {
-                Layout.fillWidth: true
-                height: 40
-                color: "#ffffff"
-
-                // 顶部分隔线
+                // 区域 6：聊天记录区域 [cite: 77, 78]
                 Rectangle {
-                    width: parent.width; height: 1
-                    color: chatDialog.panelBorder
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: "#f0f4f8"
+
+                    ListView {
+                        id: messageList
+                        anchors.fill: parent
+                        clip: true
+                        model: messageModel // 需在外部提供 messageModel
+                        delegate: MessageBubble {}
+                        verticalLayoutDirection: ListView.BottomToTop
+                        spacing: 4
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    }
                 }
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 8
+                // 区域 7：工具栏 [cite: 84, 85]
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 40
+                    color: "#ffffff"
 
-                    Repeater {
-                        model: ["📎", "🖼️", "😊", "📍"]
-                        delegate: ToolbarBtn {
-                            icon: modelData
+                    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: chatDialog.panelBorder }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        spacing: 16
+
+                        Repeater {
+                            model: ["📎", "🖼️", "😊", "📍"]
+                            delegate: ToolbarBtn { iconText: modelData }
                         }
+                        Item { Layout.fillWidth: true } // 占位把图标推到左边
                     }
-                    Item { Layout.fillWidth: true }
                 }
-            }
 
-            // ── 区域 8 + 9：输入区域 + 发送按钮 ─────────
-            Rectangle {
-                Layout.fillWidth: true
-                height: 52
-                color: "#ffffff"
+                // 区域 8 + 9：输入区域 + 发送按钮 [cite: 92, 93, 94]
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 60
+                    color: "#ffffff"
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    anchors.topMargin: 8
-                    anchors.bottomMargin: 8
-                    spacing: 10
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
 
-                    // 区域 8：文本输入框
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 36
-                        radius: 18
-                        color: chatDialog.searchBg
+                        // 文本输入框 (优化为 TextArea 支持多行)
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            radius: 8
+                            color: chatDialog.searchBg
 
-                        TextInput {
-                            id: messageInput
-                            anchors.fill: parent
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            // placeholderText: "输入消息…"
-                            font.pixelSize: 14
-                            color: chatDialog.textPrimary
-                            verticalAlignment: TextInput.AlignVCenter
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: 4
+                                TextArea {
+                                    id: messageInput
+                                    placeholderText: "输入消息…"
+                                    font.pixelSize: 14
+                                    color: chatDialog.textPrimary
+                                    wrapMode: TextEdit.Wrap
+                                    background: null
 
-                            Keys.onReturnPressed: sendMessage()
+                                    // 捕获回车键发送，Shift+回车换行
+                                    Keys.onPressed: (event) => {
+                                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                            if (event.modifiers & Qt.ShiftModifier) {
+                                                return; // 允许换行
+                                            } else {
+                                                event.accepted = true;
+                                                sendMessage();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 发送按钮 [cite: 104, 105, 106]
+                        SendBtn {
+                            id: sendBtn
+                            Layout.preferredWidth: 36; Layout.preferredHeight: 36
+                            onClicked: sendMessage()
                         }
                     }
-
-                    // 区域 9：发送按钮
-                    // SendBtn {
-                    //     id: sendBtn
-                    //     width: 36; height: 36
-                    //     onClicked: sendMessage()
-                    // }
                 }
             }
         }
     }
 
     // ───────────────────────────────────────────────────
-    // 数据模型（示例数据，后续对接 C++ 数据源）
-    // ───────────────────────────────────────────────────
-    ListModel {
-        id: chatModel
-        ListElement { name: "Alice";   lastMsg: "好的，明天见！";  time: "14:32"; unread: 0; avatarColor: "#7bc67e" }
-        ListElement { name: "Bob";     lastMsg: "文件已发送";      time: "12:10"; unread: 3; avatarColor: "#e88c8c" }
-        ListElement { name: "项目群"; lastMsg: "@All 请查收周报"; time: "昨天";  unread: 12; avatarColor: "#a78bfa" }
-    }
-
-    ListModel {
-        id: searchResultModel
-    }
-
-    ListModel {
-        id: messageModel
-        ListElement { msgText: "你好！";             isSelf: false; timeStr: "14:28" }
-        ListElement { msgText: "在吗，方便说话吗？"; isSelf: false; timeStr: "14:29" }
-        ListElement { msgText: "在的，什么事？";     isSelf: true;  timeStr: "14:30" }
-        ListElement { msgText: "明天的会议改到下午3点了。"; isSelf: false; timeStr: "14:31" }
-        ListElement { msgText: "好的，明天见！";     isSelf: true;  timeStr: "14:32" }
-    }
-
-    // ───────────────────────────────────────────────────
-    // 发送消息逻辑
+    // 发送消息逻辑 [cite: 111, 112]
     // ───────────────────────────────────────────────────
     function sendMessage() {
         const text = messageInput.text.trim()
@@ -388,7 +382,7 @@ Rectangle {
             isSelf:  true,
             timeStr: Qt.formatTime(new Date(), "hh:mm")
         })
-        messageInput.text = ""
+        messageInput.clear() // TextArea 使用 clear() 更安全
         // TODO: 调用 C++ TcpMgr 发送至服务器
     }
 }

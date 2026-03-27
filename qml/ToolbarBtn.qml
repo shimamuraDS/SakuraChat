@@ -1,13 +1,14 @@
 // ToolbarBtn.qml
 import QtQuick
+import QtQuick.Controls
 
-Item {
+AbstractButton {
     id: root
     width: 32; height: 32
-    property string icon: ""
+    property string iconText: ""
     signal clicked()
 
-    property bool hovered: false
+    hoverEnabled: true
 
     Rectangle {
         anchors.fill: parent
@@ -17,17 +18,8 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: root.icon
+            text: root.iconText
             font.pixelSize: 18
         }
-    }
-
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onEntered: root.hovered = true
-        onExited:  root.hovered = false
-        onClicked: root.clicked()
     }
 }

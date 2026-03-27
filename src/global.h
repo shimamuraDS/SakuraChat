@@ -44,7 +44,4 @@ struct ServerInfo {
     int Uid;
 };
 
-// 全局配置变量声明
-extern QString gate_url_prefix;
-
 #endif // GLOBAL_H

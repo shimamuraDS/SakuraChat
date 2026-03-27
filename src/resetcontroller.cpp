@@ -2,6 +2,7 @@
 #include "httpmgr.h"
 #include <QJsonDocument>
 #include <QDebug>
+#include "configmanager.h"
 
 ResetController::ResetController(QObject *parent)
     : QObject{parent}
@@ -16,7 +17,7 @@ void ResetController::getVerifyCode(const QString& email)
     QJsonObject json_obj;
     json_obj["email"] = email;
     HttpMgr::GetInstance()->PostHttpReq(
-        QUrl(gate_url_prefix + "/get_varifycode"),
+        QUrl(ConfigManager::instance().gateUrlPrefix() + "/get_varifycode"),
         json_obj, ReqId::ID_GET_VARIFY_CODE, Modules::RESETMOD);
 }
 
@@ -30,7 +31,7 @@ void ResetController::resetPassword(const QString& user, const QString& email,
     json_obj["varifycode"] = verifyCode;
 
     HttpMgr::GetInstance()->PostHttpReq(
-        QUrl(gate_url_prefix + "/reset_pwd"),
+        QUrl(ConfigManager::instance().gateUrlPrefix() + "/reset_pwd"),
         json_obj, ReqId::ID_RESET_PWD, Modules::RESETMOD);
 }
 

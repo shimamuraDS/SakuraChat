@@ -2,6 +2,7 @@
 #include <QObject>
 #include "global.h"
 #include "httpmgr.h"
+#include "configmanager.h"
 
 RegisterController::RegisterController(QObject *parent) : QObject(parent) {
     initHttpHandlers();
@@ -12,7 +13,7 @@ void RegisterController::getVerifyCode(const QString& email) {
     QJsonObject json;
     json["email"] = email;
 
-    QString url = gate_url_prefix + "/get_varifycode";
+    QString url = ConfigManager::instance().gateUrlPrefix() + "/get_varifycode";
     HttpMgr::GetInstance()->PostHttpReq(QUrl(url), json, ReqId::ID_GET_VARIFY_CODE, Modules::REGISTERMOD);
 }
 
@@ -24,7 +25,7 @@ void RegisterController::registerUser(const QString& username, const QString& em
     json["password"] = password;
     json["confirm"] = confirm;
 
-    QString url = gate_url_prefix + "/user_register";
+    QString url = ConfigManager::instance().gateUrlPrefix() + "/user_register";
     HttpMgr::GetInstance()->PostHttpReq(QUrl(url), json, ReqId::ID_REG_USER, Modules::REGISTERMOD);
 }
 

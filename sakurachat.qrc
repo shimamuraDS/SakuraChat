@@ -6,5 +6,7 @@
         <file>res/unvisible_hover.png</file>
         <file>res/visible.png</file>
         <file>res/visible_hover.png</file>
+        <file>res/chat_search.png</file>
+        <file>res/clear_search.png</file>
     </qresource>
 </RCC>

@@ -10,248 +10,129 @@ Rectangle {
     border.color: "#dddddd"
     border.width: 1
     gradient: Gradient {
-        GradientStop {
-            position: 0.0;
-            color: "#e8f0fe"
-        }
-        GradientStop {
-            position: 1.0;
-            color: "#ffffff"
-        }
+        GradientStop { position: 0.0; color: "#e8f0fe" }
+        GradientStop { position: 1.0; color: "#ffffff" }
     }
 
     property bool isLoading: false
-
-    // 切换登录界面
     signal switchLogin()
 
-    // 错误提示缓存
-    property var tipErrors: ({})
-    property int currentPage: 0
-    property int countdown: 5
-
-    // 错误提示枚举
-    readonly property int tipSuccess: 0
-    readonly property int tipEmailErr: 1
-    readonly property int tipPwdErr: 2
-    readonly property int tipConfirmErr: 3
-    readonly property int tipPwdConfirm: 4
-    readonly property int tipVarifyErr: 5
-    readonly property int tipUserErr: 6
-
-    // 提示函数
-    function showTip(message, isError = false, fromValidation = false, tipType = -1) {
-        if (fromValidation) {
-            // 强制字符串键，避免删除失败
-            var key = String(tipType)
-
-            if (isError) {
-                tipErrors[key] = message
-            } else {
-                if (tipErrors.hasOwnProperty(key))
-                    delete tipErrors[key]
-            }
-
-            // 显示第一个错误
-            var keys = Object.keys(tipErrors)
-            if (keys.length === 0) {
-                errTip.text = ""
-                errTip.state = "normal"
-            } else {
-                errTip.text = tipErrors[keys[0]]
-                errTip.state = "err"
-            }
-        } else {
-            // 非表单验证提示
-            errTip.text = message
-            errTip.state = isError ? "err" : "normal"
-        }
+    // ─────────────────────────────────────────────────────────
+    // 核心逻辑区：统一的错误提示与表单校验
+    // ─────────────────────────────────────────────────────────
+    function showTip(message, isError = false) {
+        errTip.text = message
+        errTip.color = isError ? "#F44336" : "#4CAF50"
     }
 
-    // 验证用户名
-    function checkUserValid() {
-        if (regUsernameField.text === "") {
-            showTip("用户名不能为空", true, true, tipUserErr)
-            return false
-        }
-        showTip("", false, true, tipUserErr)
-        return true
-    }
-
-    // 验证邮箱
-    function checkEmailValid() {
-        var emailRegex = /(\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+/
+    function validateEmailOnly() {
+        const emailRegex = /^[\w\.-]+@[\w\.-]+\.\w+$/
         if (!emailRegex.test(emailField.text)) {
-            showTip("邮箱地址不正确", true, true, tipEmailErr)
+            showTip("邮箱格式不正确", true)
             return false
         }
-        showTip("", false, true, tipEmailErr)
+        showTip("", false)
         return true
     }
 
-    // 验证密码
-    function checkPassValid() {
-        var pass = regPasswordField.text
-        if (pass.length < 6 || pass.length > 15) {
-            showTip("密码长度应为6~15", true, true, tipPwdErr)
-            return false
-        }
-        var passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/
-        if (!passRegex.test(pass)) {
-            showTip("不能包含非法字符", true, true, tipPwdErr)
-            return false
-        }
-        showTip("", false, true, tipPwdErr)
+    function validateForm() {
+        if (regUsernameField.text.trim() === "") return showTip("用户名不能为空", true) || false;
+
+        if (!validateEmailOnly()) return false;
+
+        if (verifyCodeField.text.trim() === "") return showTip("验证码不能为空", true) || false;
+
+        const pass = regPasswordField.text;
+        const passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/;
+        if (pass.length < 6 || pass.length > 15) return showTip("密码长度应为6~15", true) || false;
+        if (!passRegex.test(pass)) return showTip("密码包含非法字符", true) || false;
+
+        if (confirmPasswordField.text !== pass) return showTip("两次密码输入不一致", true) || false;
+
+        showTip("", false) // 校验通过，清空错误
         return true
     }
 
-    // 验证确认密码
-    function checkConfirmValid() {
-        if (confirmPasswordField.text !== regPasswordField.text) {
-            showTip("两次密码输入不一致", true, true, tipPwdConfirm)
-            return false
-        }
-        showTip("", false, true, tipPwdConfirm)
-        return true
-    }
-
-    // 验证验证码
-    function checkVerifyValid() {
-        if (verifyCodeField.text === "") {
-            showTip("验证码不能为空", true, true, tipVarifyErr)
-            return false
-        }
-        showTip("", false, true, tipVarifyErr)
-        return true
-    }
-
-    // 切换到提示页面
-    function changeTipPage() {
-        countdownTimer.stop()
-        currentPage = 1
-        countdown = 5
-        countdownTimer.start()
-    }
-
-    // 倒计时定时器
-    Timer {
-        id: countdownTimer
-        interval: 1000
-        repeat: true
-        onTriggered: {
-            if (countdown === 0) {
-                countdownTimer.stop()
-                root.switchToLogin()
-                return
-            }
-            countdown--
-        }
-    }
-
-    // 连接C++信号
+    // ─────────────────────────────────────────────────────────
+    // 信号与控制器交互区
+    // ─────────────────────────────────────────────────────────
     Connections {
         target: registerController
 
         function onVerifyCodeResult(success, message) {
-            console.log("收到验证码结果信号 - 成功:", success, "消息:", message)
             showTip(message, !success)
         }
 
         function onRegisterResult(success, message) {
-            isLoading = false;
+            isLoading = false
+            showTip(message || (success ? "注册成功，即将返回登录..." : "注册失败"), !success)
 
-            console.log("收到注册结果信号 - 成功:", success, "消息:", message)
-            showTip(message, !success)
             if (success) {
-                // 注册成功，切换登录页面
-                showTip("注册成功", !success)
-                registerDialog.switchLogin()
-            } else {
-                showTip(message || "注册失败，请重试", !success)
-                console.log("Registration failed:", message);
+                // 注册成功后，延迟 1.5 秒自动跳转到登录界面
+                successDelayTimer.start()
             }
         }
     }
 
-    // 获取验证码
-    function getVerifyCode() {
-        if (!checkEmailValid())
-            return
-        // 调用C++后端获取验证码
-        registerController.getVerifyCode(emailField.text)
+    Timer {
+        id: successDelayTimer
+        interval: 1500
+        onTriggered: registerDialog.switchLogin()
     }
 
-    // 加载指示器
+    function onSureBtnClicked() {
+        if (!validateForm()) return;
+
+        isLoading = true
+        registerController.registerUser(
+            regUsernameField.text,
+            emailField.text,
+            verifyCodeField.text,
+            regPasswordField.text,
+            confirmPasswordField.text
+        )
+    }
+
+    function getVerifyCode() {
+        if (!validateEmailOnly()) return;
+        registerController.getVerifyCode(emailField.text)
+        timerButton.startCountdown()
+    }
+
+    // 全局加载遮罩
     BusyIndicator {
         anchors.centerIn: parent
         visible: isLoading
         running: isLoading
+        z: 99
     }
 
-    // 注册
-    function onSureBtnClicked() {
-        console.log("Sure button clicked");
-
-        tipErrors = {}
-
-        var valid = checkUserValid()
-        if (!valid) return
-
-        valid = checkEmailValid()
-        if (!valid) return
-
-        valid = checkPassValid()
-        if (!valid) return
-
-        valid = checkConfirmValid()
-        if (!valid) return
-
-        valid = checkVerifyValid()
-        if (!valid) return
-
-        BusyIndicator.running = true
-
-        var username = regUsernameField.text
-        var email = emailField.text
-        var varifyCode = verifyCodeField.text
-        var password = regPasswordField.text
-        var confirmPassword = confirmPasswordField.text
-
-        isLoading = true;
-
-        registerController.registerUser(username, email, varifyCode, password, confirmPassword)
-    }
-
+    // ─────────────────────────────────────────────────────────
+    // UI 布局区
+    // ─────────────────────────────────────────────────────────
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 12
         width: parent.width * 0.8
 
-        // 返回
+        // 返回按钮
         Button {
             Layout.alignment: Qt.AlignLeft
             Layout.preferredWidth: 60
             Layout.preferredHeight: 30
             text: "<- 返回"
-
-            background: Rectangle {
-                color: "transparent"
-            }
-
+            background: Item {} // 透明背景
             contentItem: Text {
                 text: parent.text
                 font.pixelSize: 14
-                color: "#666666"
+                color: parent.hovered ? "#1DDCC1" : "#666666"
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
+                Behavior on color { ColorAnimation { duration: 150 } }
             }
-
-            onClicked: {
-                registerDialog.switchLogin()
-            }
+            onClicked: registerDialog.switchLogin()
         }
 
-        // 标题
         Text {
             Layout.fillWidth: true
             text: "用户注册"
@@ -261,262 +142,140 @@ Rectangle {
             horizontalAlignment: Text.AlignHCenter
         }
 
-        // 错误提示
-        Rectangle {
-            id: errTipWidget
+        // 统一错误提示文本框
+        Text {
+            id: errTip
             Layout.fillWidth: true
             Layout.preferredHeight: 18
-            color: "transparent"
-
-            Text {
-                id: errTip
-                anchors.centerIn: parent
-                text: ""
-                font.pixelSize: 14
-                horizontalAlignment: Text.AlignHCenter
-
-                // 状态管理
-                states: [
-                    State {
-                        name: "normal"
-                        PropertyChanges {
-                            target: errTip
-                            color: "#4CAF50"
-                        }
-                    },
-                    State {
-                        name: "err"
-                        PropertyChanges {
-                            target: errTip
-                            color: "#F44336"
-                        }
-                    }
-                ]
-
-                transitions: [
-                    Transition {
-                        ColorAnimation {
-                            duration: 200
-                            easing.type: Easing.InOutQuad
-                        }
-                    }
-                ]
-
-                // 初始状态
-                state: "normal"
-            }
+            text: ""
+            font.pixelSize: 14
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
         }
 
         // 用户名
         ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 5
-
-            Text {
-                text: "用户名"
-                font.pixelSize: 14
-                color: "#666666"
-            }
-
+            Layout.fillWidth: true; spacing: 5
+            Text { text: "用户名"; font.pixelSize: 14; color: "#666666" }
             TextField {
                 id: regUsernameField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                placeholderText: "请输入用户名"
-                font.pixelSize: 16
-
+                Layout.fillWidth: true; Layout.preferredHeight: 36
+                placeholderText: "请输入用户名"; font.pixelSize: 15
                 background: Rectangle {
-                    border.color: regUsernameField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1
-                    radius: 5
-                    color: "#FAFAFA"
+                    border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                    border.width: 1; radius: 5; color: "#FAFAFA"
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
                 }
-
-                onEditingFinished: checkUserValid()
             }
         }
 
-        // 邮箱
+        // 邮箱与验证码按钮
         ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 5
-
-            Text {
-                text: "邮箱"
-                font.pixelSize: 14
-                color: "#666666"
-            }
-
+            Layout.fillWidth: true; spacing: 5
+            Text { text: "邮箱"; font.pixelSize: 14; color: "#666666" }
             RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-
+                Layout.fillWidth: true; spacing: 10
                 TextField {
                     id: emailField
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    placeholderText: "请输入邮箱"
-                    font.pixelSize: 16
-
+                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    placeholderText: "请输入邮箱"; font.pixelSize: 15
                     background: Rectangle {
-                        border.color: emailField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1
-                        radius: 5
-                        color: "#FAFAFA"
+                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                        border.width: 1; radius: 5; color: "#FAFAFA"
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
                     }
-                    onEditingFinished: checkEmailValid()
                 }
-
                 TimerButton {
                     id: timerButton
-                    Layout.preferredWidth: 90
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 90; Layout.preferredHeight: 36
                     countdownTime: 60
                     normalText: "获取验证码"
-
-                    onClicked: {
-                        startCountdown()
-                        getVerifyCode()
-                    }
+                    onClicked: getVerifyCode()
                 }
             }
         }
 
-        // 验证码
+        // 验证码输入框
         ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 5
-
-            Text {
-                text: "验证码"
-                font.pixelSize: 14
-                color: "#666666"
-            }
-
+            Layout.fillWidth: true; spacing: 5
+            Text { text: "验证码"; font.pixelSize: 14; color: "#666666" }
             TextField {
                 id: verifyCodeField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
-                placeholderText: "请输入验证码"
-                font.pixelSize: 16
-
+                Layout.fillWidth: true; Layout.preferredHeight: 36
+                placeholderText: "请输入验证码"; font.pixelSize: 15
                 background: Rectangle {
-                    border.color: verifyCodeField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1
-                    radius: 5
-                    color: "#FAFAFA"
+                    border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                    border.width: 1; radius: 5; color: "#FAFAFA"
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
                 }
-                onEditingFinished: checkVerifyValid()
             }
         }
 
-        // 密码
+        // 密码输入框
         ColumnLayout {
-            Layout.fillHeight: true
-            spacing: 5
-
-            Text {
-                text: "密码"
-                font.pixelSize: 14
-                color: "#666666"
-            }
-
+            Layout.fillWidth: true; spacing: 5
+            Text { text: "密码"; font.pixelSize: 14; color: "#666666" }
             RowLayout {
-                Layout.fillWidth: true
-                spacing: 5
+                Layout.fillWidth: true; spacing: 5
                 TextField {
                     id: regPasswordField
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    placeholderText: "请输入密码"
-                    font.pixelSize: 16
-                    echoMode: passwordVisible.isSelected ? TextInput.Normal : TextInput.Password
-
+                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    placeholderText: "请输入密码"; font.pixelSize: 15
+                    echoMode: passwordVisible.checked ? TextInput.Normal : TextInput.Password
                     background: Rectangle {
-                        border.color: regPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1
-                        radius: 5
-                        color: "#FAFAFA"
+                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                        border.width: 1; radius: 5; color: "#FAFAFA"
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
                     }
-                    onEditingFinished: checkPassValid()
                 }
-
                 ClickableLabel {
                     id: passwordVisible
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    Layout.alignment: Qt.AlighVCenter
-
-                    Component.onCompleted: {
-                        setState("qrc:/res/unvisible.png",
-                                 "qrc:/res/unvisible_hover.png",
-                                 "qrc:/res/visible.png",
-                                 "qrc:/res/visible_hover.png")
-                    }
+                    Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                    normalIcon: "qrc:/res/unvisible.png"
+                    checkedIcon: "qrc:/res/visible.png"
                 }
             }
         }
 
-        // 确认密码
+        // 确认密码输入框
         ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 5
-
-            Text {
-                text: "确认密码"
-                font.pixelSize: 14
-                color: "#666666"
-            }
-
+            Layout.fillWidth: true; spacing: 5
+            Text { text: "确认密码"; font.pixelSize: 14; color: "#666666" }
             RowLayout {
-                Layout.fillWidth: true
-                spacing: 5
+                Layout.fillWidth: true; spacing: 5
                 TextField {
                     id: confirmPasswordField
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    placeholderText: "请再次输入密码"
-                    font.pixelSize: 16
-
-                    echoMode: confirmPasswordVisible.isSelected ? TextInput.Normal : TextInput.Password
-
+                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    placeholderText: "请再次输入密码"; font.pixelSize: 15
+                    echoMode: confirmPasswordVisible.checked ? TextInput.Normal : TextInput.Password
                     background: Rectangle {
-                        border.color: confirmPasswordField.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1
-                        radius: 5
-                        color: "#FAFAFA"
+                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
+                        border.width: 1; radius: 5; color: "#FAFAFA"
+                        Behavior on border.color { ColorAnimation { duration: 150 } }
                     }
-                    onEditingFinished: checkConfirmValid()
                 }
-
                 ClickableLabel {
                     id: confirmPasswordVisible
-                    Layout.preferredWidth: 24
-                    Layout.preferredHeight: 24
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Component.onCompleted: {
-                        setState("qrc:/res/unvisible.png",
-                                 "qrc:/res/unvisible_hover.png",
-                                 "qrc:/res/visible.png",
-                                 "qrc:/res/visible_hover.png")
-                    }
+                    Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                    normalIcon: "qrc:/res/unvisible.png"
+                    checkedIcon: "qrc:/res/visible.png"
                 }
             }
         }
 
-        // 注册
+        // 注册按钮
         Button {
             id: registerBtn
             Layout.fillWidth: true
-            Layout.preferredHeight: 45
+            Layout.preferredHeight: 42
             Layout.topMargin: 10
-            text: isLoading ? "注册中..." : "注册"
+            text: isLoading ? "注册中..." : "注 册"
             enabled: !isLoading
 
             background: Rectangle {
-                color: registerBtn.pressed ? "#1DDCC0" : "#1DDCC1"
+                color: registerBtn.pressed ? "#1DDCC0" : (registerBtn.hovered ? "#32E5CC" : "#1DDCC1")
                 radius: 5
+                Behavior on color { ColorAnimation { duration: 150 } }
             }
 
             contentItem: Text {
@@ -528,9 +287,7 @@ Rectangle {
                 verticalAlignment: Text.AlignVCenter
             }
 
-            onClicked: {
-                onSureBtnClicked()
-            }
+            onClicked: onSureBtnClicked()
         }
     }
 }

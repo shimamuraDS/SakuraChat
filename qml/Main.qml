@@ -9,28 +9,21 @@ ApplicationWindow {
     height: 550
     visible: true
     title: qsTr("SakuraChat")
+    color: "#f5f7fb"
 
     // 让应用启动时就在屏幕正中间
-        Component.onCompleted: {
-            root.x = (Screen.width - root.width) / 2
-            root.y = (Screen.height - root.height) / 2
-        }
+    Component.onCompleted: {
+        root.x = (Screen.width - root.width) / 2
+        root.y = (Screen.height - root.height) / 2
+    }
 
     // 界面状态：login | register | reset | chat
     property string currentView: "login"
 
-    Behavior on width {
-            NumberAnimation { duration: 350; easing.type: Easing.InOutQuad }
-        }
-        Behavior on height {
-            NumberAnimation { duration: 350; easing.type: Easing.InOutQuad }
-        }
-        Behavior on x {
-            NumberAnimation { duration: 350; easing.type: Easing.InOutQuad }
-        }
-        Behavior on y {
-            NumberAnimation { duration: 350; easing.type: Easing.InOutQuad }
-        }
+    Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+    Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+    Behavior on x { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+    Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
 
     onCurrentViewChanged: {
         if (currentView === "chat") {
@@ -74,30 +67,22 @@ ApplicationWindow {
 
         // Index 0: 登录页
         LoginDialog {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
             onSwitchRegister: root.currentView = "chat"
             onSwitchReset: root.currentView = "reset"
         }
 
         // Index 1: 注册页
         RegisterDialog {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
             onSwitchLogin: root.currentView = "login"
         }
 
         // Index 2: 重置密码页
         ResetDialog {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
             onSwitchLogin: root.currentView = "login"
         }
 
         // Index 3: 聊天主界面
         ChatDialog {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
         }
     }
 }
