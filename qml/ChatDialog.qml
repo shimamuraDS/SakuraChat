@@ -277,21 +277,10 @@ Rectangle {
                 }
 
                 // 区域 6：聊天记录区域 [cite: 77, 78]
-                Rectangle {
+                ChatView {
+                    id: chatView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: "#f0f4f8"
-
-                    ListView {
-                        id: messageList
-                        anchors.fill: parent
-                        clip: true
-                        model: messageModel // 需在外部提供 messageModel
-                        delegate: MessageBubble {}
-                        verticalLayoutDirection: ListView.BottomToTop
-                        spacing: 4
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                    }
                 }
 
                 // 区域 7：工具栏 [cite: 84, 85]
@@ -371,18 +360,55 @@ Rectangle {
         }
     }
 
-    // ───────────────────────────────────────────────────
-    // 发送消息逻辑 [cite: 111, 112]
-    // ───────────────────────────────────────────────────
+    // ── 当前会话用户信息（可由联系人点击事件更新）────────────────
+    property string currentUserName: ""
+    property string currentUserIcon: ""
+
+    // ── 发送消息函数（替代原 on_send_btn_clicked 槽函数）────────
     function sendMessage() {
-        const text = messageInput.text.trim()
-        if (text.length === 0) return
-        messageModel.insert(0, {
-            msgText: text,
-            isSelf:  true,
-            timeStr: Qt.formatTime(new Date(), "hh:mm")
-        })
-        messageInput.clear() // TextArea 使用 clear() 更安全
-        // TODO: 调用 C++ TcpMgr 发送至服务器
+        var inputText = messageInput.text.trim()
+        if (inputText.length === 0) return
+
+        // 遍历输入框中的消息列表（文本 + 图片混合，与原 getMsgList() 对应）
+        // 此处以纯文本发送为示例，图片发送逻辑类似
+        var msgData = {
+            "messageText":  inputText,
+            "imageSource":  "",
+            "isSentByMe":   true,
+            "senderName":   currentUserName,
+            "avatarSource": currentUserIcon,
+            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
+        }
+        chatView.appendMessage(msgData)
+        messageInput.clear()
+
+        // 预留 TcpMgr 发送接口（后续网络层对接）
+        // tcpMgr.sendTextMessage(inputText)
+    }
+
+    // ── 图片消息发送（对应原 type == "image" 分支）───────────────
+    function sendImageMessage(imagePath) {
+        var msgData = {
+            "messageText":  "",
+            "imageSource":  imagePath,
+            "isSentByMe":   true,
+            "senderName":   currentUserName,
+            "avatarSource": currentUserIcon,
+            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
+        }
+        chatView.appendMessage(msgData)
+    }
+
+    // ── 接收对方消息（模拟，后续由 TcpMgr 信号触发）────────────
+    function receiveMessage(senderName, avatarPath, text) {
+        var msgData = {
+            "messageText":  text,
+            "imageSource":  "",
+            "isSentByMe":   false,
+            "senderName":   senderName,
+            "avatarSource": avatarPath,
+            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
+        }
+        chatView.appendMessage(msgData)
     }
 }

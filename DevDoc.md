@@ -162,7 +162,7 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 区域 3：近期聊天联系人列表（支持动态加载更多 + 加载覆盖层）
   - 区域 4：搜索结果实时过滤（通过 delegate `visible` 绑定 `searchInput.text` 实现）
   - 区域 5：顶部栏（聊天对象名称、头像、在线状态、搜索/更多按钮）
-  - 区域 6：聊天记录区域（消息气泡列表，`verticalLayoutDirection: BottomToTop`）
+  - 区域 6：聊天记录区域（由独立的 `ChatView` 组件承载）
   - 区域 7：工具栏区域（附件、图片、表情、定位等）
   - 区域 8：文本输入区域（`TextArea` 多行，`Shift+Enter` 换行）
   - 区域 9：发送按钮区域
@@ -179,9 +179,25 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 输入框捕获 `Keys.onPressed`：`Enter` 触发 `sendMessage()`，`Shift+Enter` 正常换行
   - `sendMessage()` 函数向 `messageModel` 插入消息，预留 `TcpMgr` 接口
   - 滚动条通过 `ScrollBar` 组件设置 `policy: ScrollBar.AsNeeded`，参考 Telegram 风格
+  - **`sendMessage()` 函数**: 
+    - 支持文本消息和图片消息两种类型，
+    - 新增 `receiveMessage()` 函数，用于接收对方消息，后续由 `TcpMgr` 的 `sig_recv_message` 信号触发
+
+#### `ChatView.qml`
+- **功能**: 滚动聊天消息区域组件
+- **对外接口**:
+  - appendMessage(msgData): 尾插消息并自动滚动到底部
+  - prependMessage(msgData): 头插消息，对应原 prependChatItem()
+  - `sendImageMessage(imagePath)` — 图片消息快捷发送方法
+- **内部结构**:
+  - chatModel（ListModel）：消息数据源
+  - listView（ListView）：虚拟化渲染，替代 QScrollArea + QVBoxLayout 组合，天然解决大量消息时的性能问题
+  - floatingScrollBar（ScrollBar）：通过 Binding 与 listView.visibleArea 双向联动，policy: ScrollBar.AsNeeded 实现按需显隐，替代原 pVScrollBar->setHidden(true) 的手动管理
+  - footer：高度为 4px 的留白 Item，替代原 pVLayout_1 中 stretch 比例为 100000 的空白 QWidget
+  - 气泡出现动画: 每条消息 delegate 实例化时触发 scale 从 0.85 到 1.0 的弹性动画（Easing.OutBack，180ms），对应原方案中可在 paintEvent 扩展的自定义绘制入口
 
 #### `SidebarIconBtn.qml`
-- **功能**: 左侧图标栏按钮组件，替代原 Qt Widgets 中的 ClickedBtn C++ 自定义类
+- **功能**: 左侧图标栏按钮组件
 - **特性**:
   - 支持 normal / hover / press 三态，通过 MouseArea 事件驱动，无需 C++ 代码
   - Behavior on color 实现平滑颜色过渡动画（120ms）
@@ -225,12 +241,21 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 无需外部 `.ui` 文件，无需 QSS，样式完全内联在 QML 属性中
 
 #### `MessageBubble.qml`
-- **功能**: 聊天记录消息气泡组件（区域 6）
+- **功能**: 统一气泡组件
+- **属性接口**:
+  - `messageText`：消息正文（文本消息）
+  - `imageSource`：图片路径（图片消息，空则视为文本）
+  - `isSentByMe`：控制气泡左右对齐（`true` 靠右为己方，`false` 靠左为对方）
+  - `senderName`：发送者名称（群聊场景展示，己方消息自动隐藏）
+  - `avatarSource`：头像图片路径
+  - `timestamp`：右下角时间戳
 - **特性**:
-  - isSelf 属性控制气泡左右对齐（自己发送靠右，对方靠左）
-  - 自己发送气泡为浅绿色（#effdde），对方为白色，风格与 Telegram 一致
-  - 气泡宽度自适应文字内容，最大不超过聊天区域 72%
-  - 右下角显示发送时间戳
+  - 己方气泡为深蓝色（`#2B5278`）白字，对方气泡为白色深色文字，风格与 Telegram 一致
+  - 使用 `RowLayout` + `layoutDirection` 实现左右镜像布局，无需为两种气泡分别编写布局代码，替代原两套 `QGridLayout`
+  - 文本气泡宽度自适应内容，最大不超过聊天区域 72%（`_maxBubbleWidth: 400`），`implicitHeight` 随内容自动伸缩，替代原 `eventFilter` 动态调整高度方案
+  - 图片消息尺寸上限对应原 `PIC_MAX_WIDTH=160 / PIC_MAX_HEIGHT=90`，保持宽高比（对应原 `Qt.KeepAspectRatio`），在 `Component.onCompleted` 中计算
+  - 气泡出现时触发 `scale` 弹性动画（`0.85 → 1.0`，`Easing.OutBack`，180ms），对应原方案中可在 `paintEvent` 扩展的自定义绘制入口
+  - 气泡绘制（原 `QPainter` 先绘矩形再绘三角形）由 `Rectangle` + `radius` + `border` 替代，无需任何 `QPainter` 代码
 
 #### `SendBtn.qml`
 - **功能**: 消息发送按钮（区域 9）
@@ -449,12 +474,13 @@ SakuraChat/
 │   ├── ResetDialog.qml    # 重置界面(完整功能实现)
 │   ├── TimerButton.qml    # 独立倒计时按钮组件
 │   ├── ClickableLable.qml # 可点击标签组件
-│   ├── ChatDialog.qml     # 聊天主界面（搜索框 + 聊天列表）
-│   ├── ChatUserWid.qml    # 聊天列表 item 组件（替代设计师界面类 ChatUserWid）
+│   ├── ChatDialog.qml     # 聊天主界面（搜索框 + 聊天列表）（含 sendMessage / receiveMessage）
+│   ├── ChatView.qml       # 滚动聊天消息区域
+│   ├── ChatUserWid.qml    # 聊天列表 item 组件
 │   ├── SidebarIconBtn.qml # 侧边栏图标按钮（替代 ClickedBtn C++）
 │   ├── AddGroupBtn.qml    # 创建群聊按钮（add_btn 三态）
 │   ├── ContactItem.qml    # 联系人列表项
-│   ├── MessageBubble.qml  # 消息气泡
+│   ├── MessageBubble.qml  # 统一气泡组件（文本 + 图片，己方 + 对方）
 │   ├── SendBtn.qml        # 发送按钮
 │   └── ToolbarBtn.qml     # 工具栏按钮
 └── sakurachat.qrc         # 资源文件
@@ -554,25 +580,21 @@ SakuraChat/
 ### 聊天主界面 (ChatDialog)
 
 1. **界面布局与切换**：
-   登录成功后，`TcpMgr` 发送 `sig_switch_chatdlg` 信号，`Main.qml` 监听后将 `currentView` 切换为 `"chat"`，通过 `StackLayout` 跳转到 `ChatDialog`。在 `ChatDialog` 内部，`StackLayout`（`mainStack`）进一步管理聊天区域的子页切换：点击联系人列表项后将 `mainStack.currentIndex` 设为 `1`，切换至真实聊天页。
-
+  登录成功后，`TcpMgr` 发送 `sig_switch_chatdlg` 信号，`Main.qml` 监听后将 `currentView` 切换为 `"chat"`，通过 `StackLayout` 跳转到 `ChatDialog`。在 `ChatDialog` 内部，`StackLayout`（`mainStack`）进一步管理聊天区域的子页切换：点击联系人列表项后将 `mainStack.currentIndex` 设为 `1`，切换至真实聊天页。
 2. **按钮三态实现（替代 ClickedBtn）**：
-   原 Qt Widgets 方案需继承 `QPushButton`、重写 `enterEvent / mousePressEvent / mouseReleaseEvent`、编写 QSS 三态样式、在构造函数调用 `SetState()`。QML 方案通过 `MouseArea` 的 `onEntered / onExited / onPressed / onReleased` 驱动 `btnState` 属性，`color` 绑定三态颜色表达式，`Behavior on color` 添加过渡动画，所有逻辑内联在组件文件中，无需任何 C++ 代码和外部样式文件。
-
+  原 Qt Widgets 方案需继承 `QPushButton`、重写 `enterEvent / mousePressEvent / mouseReleaseEvent`、编写 QSS 三态样式、在构造函数调用 `SetState()`。QML 方案通过 `MouseArea` 的 `onEntered / onExited / onPressed / onReleased` 驱动 `btnState` 属性，`color` 绑定三态颜色表达式，`Behavior on color` 添加过渡动画，所有逻辑内联在组件文件中，无需任何 C++ 代码和外部样式文件。
 3. **搜索框（替代 CustomizeEdit + QSS）**：
-   原 Qt Widgets 方案需继承 `QLineEdit`、在 `paintEvent` 中手动绘制清除按钮、在 QSS 中配置样式。QML 方案在 `ChatDialog.qml` 中直接使用 `TextField` + `Image`（清除图标）组合，通过 `visible: searchInput.text.length > 0` 控制清除按钮的显隐，点击后调用 `searchInput.clear()` 清空并重置 `filterText`，输入长度限制通过 `maximumLength: 25` 声明式配置，无需 C++ 继承类，无需 QSS 文件。
-
+  原 Qt Widgets 方案需继承 `QLineEdit`、在 `paintEvent` 中手动绘制清除按钮、在 QSS 中配置样式。QML 方案在 `ChatDialog.qml` 中直接使用 `TextField` + `Image`（清除图标）组合，通过 `visible: searchInput.text.length > 0` 控制清除按钮的显隐，点击后调用 `searchInput.clear()` 清空并重置 `filterText`，输入长度限制通过 `maximumLength: 25` 声明式配置，无需 C++ 继承类，无需 QSS 文件。
 4. **聊天列表（替代 QListWidget + setItemWidget）**：
-   原 Qt Widgets 方案通过 `QListWidget::addItem()` + `setItemWidget()` 手动挂载自定义 Widget，性能随条目增加而下降，QSS 与 C++ 代码耦合紧密。QML 方案使用 `ChatUserList`（继承 `QAbstractListModel`）作为数据源，`ListView` 作为视图，`ChatUserWid.qml` 作为 delegate，三者通过标准 Model/View 机制解耦。测试数据在 `Component.onCompleted` 中通过 `chatModel.addItem()` 填充，替代原 C++ `addChatUserList()` 函数。搜索过滤通过 delegate 的 `visible` 属性绑定 `searchInput.text` 实现实时过滤，无需重建列表。
-
+  原 Qt Widgets 方案通过 `QListWidget::addItem()` + `setItemWidget()` 手动挂载自定义 Widget，性能随条目增加而下降，QSS 与 C++ 代码耦合紧密。QML 方案使用 `ChatUserList`（继承 `QAbstractListModel`）作为数据源，`ListView` 作为视图，`ChatUserWid.qml` 作为 delegate，三者通过标准 Model/View 机制解耦。测试数据在 `Component.onCompleted` 中通过 `chatModel.addItem()` 填充，替代原 C++ `addChatUserList()` 函数。搜索过滤通过 delegate 的 `visible` 属性绑定 `searchInput.text` 实现实时过滤，无需重建列表。
 5. **动态加载更多（替代 eventFilter + LoadingDlg）**：
-   原 Qt Widgets 方案在 `ChatUserList::eventFilter` 中捕获鼠标滚轮事件，当 `maxScrollValue - currentValue <= 0` 时发射 `sig_loading_chat_user` 信号，由 `ChatDialog::slot_loading_chat_user` 槽函数接收，`new LoadingDlg` 显示加载对话框，调用 `addChatUserList()` 追加数据，完成后 `deleteLater()`。QML 方案将上述链路缩短为两步：`ListView.onAtYEndChanged` 检测到 `atYEnd` 为 `true` 时直接调用 `chatModel.loadMoreItems(10)`；C++ 模型内部通过 `m_loading` 布尔标志防止重入，并在加载前后发射 `loadingChanged` 信号；QML 侧联系人面板上叠加半透明遮罩层（`z: 5`），其 `visible` 绑定 `chatModel.isLoading()`，自动管理显隐，无需手动 `new` / `deleteLater`。
-
+  原 Qt Widgets 方案在 `ChatUserList::eventFilter` 中捕获鼠标滚轮事件，当 `maxScrollValue - currentValue <= 0` 时发射 `sig_loading_chat_user` 信号，由 `ChatDialog::slot_loading_chat_user` 槽函数接收，`new LoadingDlg` 显示加载对话框，调用 `addChatUserList()` 追加数据，完成后 `deleteLater()`。QML 方案将上述链路缩短为两步：`ListView.onAtYEndChanged` 检测到 `atYEnd` 为 `true` 时直接调用 `chatModel.loadMoreItems(10)`；C++ 模型内部通过 `m_loading` 布尔标志防止重入，并在加载前后发射 `loadingChanged` 信号；QML 侧联系人面板上叠加半透明遮罩层（`z: 5`），其 `visible` 绑定 `chatModel.isLoading()`，自动管理显隐，无需手动 `new` / `deleteLater`。
 6. **StackLayout 管理聊天页（替代 StackedWidget + ChatPage 设计师界面类）**：
-   原教程新建 `ChatPage` 设计师界面类，将 `chat_data_wid` 从 `ChatDialog.ui` 迁入，并在 `ChatDialog.ui` 的 `stackedWidget` 中将页面升级为 `ChatPage`；重写 `paintEvent` 以支持 QSS 样式刷新。QML 方案中 `StackLayout`（`mainStack`）直接作为聊天区域容器，子页以内联 `ColumnLayout` / `Item` 形式声明，无需独立文件；QML 属性绑定自动触发重绘，无需重写 `paintEvent`。
-
-7. **滚动条样式（替代 QSS QScrollBar）**：
-   原 QSS 方案通过 `QScrollBar:vertical` 等选择器配置轨道、滑块、箭头样式。QML 方案通过 `ScrollBar` 组件设置 `policy: ScrollBar.AsNeeded`，可按需扩展 `contentItem` 与 `background` 实现细圆角滑块与渐显动画，与 Telegram 风格一致。
+  原教程新建 `ChatPage` 设计师界面类，将 `chat_data_wid` 从 `ChatDialog.ui` 迁入，并在 `ChatDialog.ui` 的 `stackedWidget` 中将页面升级为 `ChatPage`；重写 `paintEvent` 以支持 QSS 样式刷新。QML 方案中 `StackLayout`（`mainStack`）直接作为聊天区域容器，子页以内联 `ColumnLayout` / `Item` 形式声明，无需独立文件；QML 属性绑定自动触发重绘，无需重写 `paintEvent`。
+7. **滚动聊天布局（替代 C++ ChatView 类）**：
+  原方案通过继承 QWidget 手动搭建 QScrollArea + 嵌套 QWidget + QVBoxLayout 的四层嵌套结构，并以 QHBoxLayout 浮动放置自定义 QScrollBar，通过 installEventFilter 监听尺寸变化、重写 paintEvent 支持子类绘制，槽函数 onVScrollBarMoved 在范围变化时自动滚动到底部。QML 方案将上述全部机制收敛至 ChatView.qml：ListView 内置虚拟化渲染替代 QScrollArea 多层嵌套；anchors 定位的 ScrollBar 通过 Binding 与 visibleArea 联动替代浮动 QHBoxLayout；appendMessage() 末尾直接调用 positionViewAtEnd() 替代 onVScrollBarMoved 槽函数；ChatDialog.qml 区域 6 原内联的 Rectangle + ListView 块整体替换为 <ChatView id="chatView">，sendMessage() 改为调用 chatView.appendMessage()，消息存储与滚动逻辑完全封装，外部零感知。
+8. **滚动条样式（替代 QSS QScrollBar）**：
+  原 QSS 方案通过 `QScrollBar:vertical` 等选择器配置轨道、滑块、箭头样式。QML 方案通过 `ScrollBar` 组件设置 `policy: ScrollBar.AsNeeded`，可按需扩展 `contentItem` 与 `background` 实现细圆角滑块与渐显动画，与 Telegram 风格一致。
 ### 网络通信架构
 ```
 QML界面 -> RegisterController -> HttpMgr -> 服务器

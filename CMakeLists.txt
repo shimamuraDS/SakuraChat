@@ -58,6 +58,7 @@ qt_add_qml_module(appSakuraChat
         config.ini
         QML_FILES qml/SendBtn.qml
         RESOURCES DevDoc.md
+        QML_FILES qml/ChatView.qml
 )
 
 if(WIN32)
