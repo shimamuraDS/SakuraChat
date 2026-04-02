@@ -4,7 +4,6 @@ import QtQuick.Controls
 AbstractButton {
     id: root
     width: 36; height: 36
-    signal clicked()
 
     hoverEnabled: true
 

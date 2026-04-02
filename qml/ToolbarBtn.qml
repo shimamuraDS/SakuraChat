@@ -6,7 +6,6 @@ AbstractButton {
     id: root
     width: 32; height: 32
     property string iconText: ""
-    signal clicked()
 
     hoverEnabled: true
 

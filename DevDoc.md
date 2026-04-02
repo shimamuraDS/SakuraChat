@@ -182,6 +182,10 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - **`sendMessage()` 函数**: 
     - 支持文本消息和图片消息两种类型，
     - 新增 `receiveMessage()` 函数，用于接收对方消息，后续由 `TcpMgr` 的 `sig_recv_message` 信号触发
+  - 侧边栏互斥切换：顶层 activeTab 字符串属性统一管理四个 SidebarIconBtn 的激活状态，点击任意按钮只需赋值 activeTab，其余按钮的 isActive 绑定自动失活。
+  - 搜索结果覆盖层：searchPanel（z: 2）叠加在联系人列表上方，visible: searchInput.text.length > 0 替代 ShowSearch(bool) 命令式调用；内含固定 header（"添加好友"提示条）和动态 ListView（数据来自 searchResultModel）。
+  - 搜索防抖：searchDebounceTimer（300ms）节流用户输入，避免每次按键触发网络请求。
+  - sig_user_search 对接：在 Component.onCompleted 中连接 C++ 侧搜索结果信号，将 QVariantList 数据逐项 append 到 searchResultModel。
 
 #### `ChatView.qml`
 - **功能**: 滚动聊天消息区域组件
@@ -204,6 +208,8 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 激活状态显示左侧白色指示条
   - 支持 ToolTip 悬浮提示
   - cursorShape: Qt.PointingHandCursor 设置手型鼠标指针
+  - isActive: bool 属性，由父级 ChatDialog.qml 的 activeTab 驱动，。
+  - 左侧激活指示条（白色 3px 竖线，opacity 带 150ms NumberAnimation）随 isActive 自动显隐。
 
 #### `SendBtn.qml`
 - **功能**: 消息发送按钮（区域 9）

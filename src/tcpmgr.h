@@ -30,6 +30,7 @@ signals:
     void sig_send_data(ReqId reqId, QString data);
     void sig_switch_chatlg();
     void sig_login_failed(int);
+    void sig_user_search(QVariantList results);
 };
 
 #endif // TCPMGR_H
