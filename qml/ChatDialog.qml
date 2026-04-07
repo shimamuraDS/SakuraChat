@@ -89,10 +89,9 @@ Rectangle {
                 }
 
                 // ── 修改点 1：侧边栏按钮互斥选中 ──────────────────────
-                // 原代码用 Repeater + 静态 modelData.active，点击后无法更新，
-                // 互斥切换完全失效。现改为四个独立的 SidebarIconBtn，
+                // 四个独立的 SidebarIconBtn，
                 // isActive 绑定到顶层 activeTab 属性，点击时赋值 activeTab
-                // 即可自动清除其他按钮的激活态（替代原 _lb_list 遍历逻辑）。
+                // 即可自动清除其他按钮的激活态。
                 SidebarIconBtn {
                     iconText: "💬"
                     tooltipText: "聊天"
@@ -161,39 +160,36 @@ Rectangle {
                             radius: 4
                             color: chatDialog.searchBg
 
-                            RowLayout {
+                            TextField {
+                                id: searchInput
                                 anchors.fill: parent
-                                anchors.margins: 6
-                                spacing: 6
+                                placeholderText: "搜索"
+                                font.pixelSize: 14
+                                color: chatDialog.textPrimary
+                                background: null
 
+                                // 增加左侧内边距，为搜索图标留出空间
+                                leftPadding: 36
+                                // 增加右侧内边距，为清除按钮留出空间
+                                rightPadding: 30
+
+                                // Telegram 风格：左侧搜索图标置于 TextField 内部
                                 Image {
-                                    source: "qrc:/res/chat_search.png"
-                                    Layout.preferredWidth: 18; Layout.preferredHeight: 18
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.leftMargin: 10
+                                    source: "qrc:/res/chat_search.png" // 保持原资源路径 [cite: 24]
+                                    width: 16; height: 16
+                                    opacity: 0.5
                                 }
 
-                                TextField {
-                                    id: searchInput
-                                    Layout.fillWidth: true
-                                    placeholderText: "搜索"
-                                    font.pixelSize: 14
-                                    color: chatDialog.textPrimary
-                                    background: null
-                                    onTextChanged: {
-                                        if (text.length === 0) {
-                                            // 清空搜索结果，恢复联系人列表
-                                            searchResultModel.clear()
-                                        } else {
-                                            // 防抖触发搜索请求
-                                            searchDebounceTimer.restart()
-                                        }
-                                        // 同步过滤联系人列表（联系人列表仍保留本地过滤）
-                                        searchModel.filterText = text
-                                    }
-                                }
-
+                                // 右侧：清除按钮
                                 Image {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.rightMargin: 10
                                     source: "qrc:/res/clear_search.png"
-                                    Layout.preferredWidth: 16; Layout.preferredHeight: 16
+                                    width: 16; height: 16
                                     visible: searchInput.text.length > 0
                                     MouseArea {
                                         anchors.fill: parent
@@ -202,8 +198,24 @@ Rectangle {
                                             searchInput.clear()
                                             searchResultModel.clear()
                                             searchModel.filterText = ""
+                                            searchPanel.visible = false // 点击清除时隐藏面板
                                         }
                                     }
+                                }
+
+                                // 按照要求修改输入逻辑
+                                onTextChanged: {
+                                    if (text.length > 0) {
+                                        searchPanel.visible = true // 显式显示搜索结果面板
+                                        // 防抖触发搜索请求
+                                        searchDebounceTimer.restart()
+                                    } else {
+                                        searchPanel.visible = false // 显式隐藏搜索结果面板
+                                        // 清空搜索结果，恢复联系人列表
+                                        searchResultModel.clear()
+                                    }
+                                    // 同步过滤联系人列表（联系人列表仍保留本地过滤）
+                                    searchModel.filterText = text
                                 }
                             }
                         }
@@ -248,18 +260,15 @@ Rectangle {
                 }
             }
 
-            // ── 修改点 2：搜索结果覆盖层 ────────────────────────────
-            // 原代码完全缺失此部分，输入文字后只过滤联系人列表，
-            // 没有搜索结果面板、"添加好友"提示条、用户搜索结果展示。
-            // 现在叠加在联系人面板上方（z:3），visible 绑定输入长度，
-            // 替代原 ShowSearch(true/false) + slot_text_changed 命令式调用。
+            // ── 搜索结果覆盖层 ────────────────────────────
+            // 叠加在联系人面板上方（z:3），visible 绑定输入长度，
             Rectangle {
                 id: searchPanel
                 anchors.fill: parent
                 anchors.topMargin: 48      // 搜索栏高度，不遮挡搜索框
-                color: "#f7f7f8"           // 对应原 QSS: background-color: rgb(247,247,248)
-                visible: searchInput.text.length > 0
+                color: "#f7f7f8"
                 z: 3
+                visible: false
 
                 ListView {
                     id: searchListView
@@ -280,7 +289,6 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                // 替代原 AddUserItem 点击触发添加好友流程
                                 console.log("触发添加好友，搜索词：", searchInput.text)
                                 // searchController.addFriend(searchInput.text)
                             }
@@ -292,7 +300,6 @@ Rectangle {
                             anchors.rightMargin: 12
                             spacing: 10
 
-                            // 替代原 #add_tip 图标 (border-image: url(:/res/addtip.png))
                             Rectangle {
                                 width: 36; height: 36
                                 radius: 18
@@ -313,7 +320,6 @@ Rectangle {
                                     font.pixelSize: 14
                                     color: "#000000"
                                 }
-                                // 替代原 #message_tip 文字提示
                                 Text {
                                     text: searchInput.text.length > 0
                                           ? "搜索 \"" + searchInput.text + "\""
@@ -324,7 +330,6 @@ Rectangle {
                                 }
                             }
 
-                            // 替代原 #right_tip 图标 (border-image: url(:/res/right_tip.png))
                             Text {
                                 text: "›"
                                 font.pixelSize: 20
@@ -332,7 +337,7 @@ Rectangle {
                             }
                         }
 
-                        // 底部分隔线（对应原 #invalid_item background-color: #eaeaea）
+                        // 底部分隔线
                         Rectangle {
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
@@ -343,11 +348,10 @@ Rectangle {
                         }
                     }
 
-                    // 搜索结果 delegate（对应原 SearchList 动态追加的用户条目）
+                    // 搜索结果 delegate
                     delegate: Rectangle {
                         width: searchListView.width
                         height: 60
-                        // 对应原 QSS: item:hover → rgb(206,207,208)
                         color: resultMouse.containsMouse ? "#cecfd0" : "#f7f7f8"
                         Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -358,6 +362,15 @@ Rectangle {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 console.log("选中搜索用户：", model.name, "uid:", model.uid)
+
+                                // 触发打开 FindSuccessDialog
+                                // 假设您的弹窗有一个类似 targetUid 的属性用于接收数据
+                                findSuccessDialog.targetUid = model.uid
+                                findSuccessDialog.targetName = model.name // 如果需要传递用户名
+                                findSuccessDialog.open() // 打开弹窗 (或者 findSuccessDialog.visible = true)
+
+                                // 可选：点击后隐藏搜索面板
+                                searchInput.clear()
                             }
                         }
 
@@ -654,5 +667,54 @@ Rectangle {
             "timestamp":    Qt.formatTime(new Date(), "hh:mm")
         }
         chatView.appendMessage(msgData)
+    }
+
+    // ── 全局透明遮罩：点击搜索列表以外区域时隐藏搜索框 ──
+    MouseArea {
+        id: globalOverlay
+        anchors.fill: parent
+        // 当搜索输入框有内容（即搜索面板可见）时激活该遮罩
+        enabled: searchInput.text.length > 0
+        z: 99 // 设置高 z 值以覆盖窗口其他所有组件
+        propagateComposedEvents: true // 允许鼠标事件向下穿透
+
+        onPressed: function(mouse) {
+            // 将全局点击坐标映射到搜索输入框和搜索结果面板
+            var pInput = mapToItem(searchInput, mouse.x, mouse.y)
+            var pPanel = mapToItem(searchPanel, mouse.x, mouse.y)
+
+            // 判断点击是否落在输入框或面板内部
+            var inInput = (pInput.x >= 0 && pInput.x <= searchInput.width &&
+                           pInput.y >= 0 && pInput.y <= searchInput.height)
+            var inPanel = (pPanel.x >= 0 && pPanel.x <= searchPanel.width &&
+                           pPanel.y >= 0 && pPanel.y <= searchPanel.height &&
+                           searchPanel.visible)
+
+            if (!inInput && !inPanel) {
+                // 如果点击在区域外，清空输入框
+                // 这会自动触发 searchInput 的 onTextChanged 事件，从而隐藏列表并清空相关 Model [cite: 28, 29, 36]
+                searchInput.clear()
+                mouse.accepted = true // 拦截事件，避免错误触发底层聊天对象的点击
+            } else {
+                mouse.accepted = false // 放行事件，让输入框或搜索列表正常响应点击
+            }
+        }
+
+        // 确保后续的释放和点击事件也能正常穿透给下层组件
+        onReleased: function(mouse) { mouse.accepted = false }
+        onClicked: function(mouse) { mouse.accepted = false }
+    }
+
+    // ── 搜索成功 / 添加好友弹窗 ──────────────────────────────
+    FindSuccessDialog {
+        id: findSuccessDialog
+        anchors.centerIn: parent
+
+        // 预留属性供点击时赋值
+        property string targetUid: ""
+        property string targetName: ""
+
+        // 您可以在这里处理弹窗内部的确认添加等逻辑
+        // onAddFriendTriggered: { ... }
     }
 }

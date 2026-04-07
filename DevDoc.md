@@ -155,12 +155,11 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 其他需要状态切换的UI元素
   
 #### `ChatDialog.qml`
-- **功能**: 聊天主界面，参考 Telegram 视觉风格
-- **布局区域**:
+- **功能**: 聊天主界面，参考 Telegram 视觉风格 - **布局区域**:
   - 区域 1：左侧图标切换栏（侧边功能入口，含头像与四个功能按钮）
-  - 区域 2：搜索栏 + 快速创建群聊按钮
+  - 区域 2：搜索栏（Telegram 风格内置图标）+ 快速创建群聊按钮 [cite: 19, 20]
   - 区域 3：近期聊天联系人列表（支持动态加载更多 + 加载覆盖层）
-  - 区域 4：搜索结果实时过滤（通过 delegate `visible` 绑定 `searchInput.text` 实现）
+  - 区域 4：搜索结果实时展示与交互（通过 `FindSuccessDialog` 承接添加好友请求）
   - 区域 5：顶部栏（聊天对象名称、头像、在线状态、搜索/更多按钮）
   - 区域 6：聊天记录区域（由独立的 `ChatView` 组件承载）
   - 区域 7：工具栏区域（附件、图片、表情、定位等）
@@ -171,22 +170,18 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 顶部声明颜色常量（`sidebarBg`、`accentBlue`、`msgBubbleSelf` 等），统一管理全局配色
   - 使用 `RowLayout` + `ColumnLayout` 实现多区域嵌套布局
   - `StackLayout`（`mainStack`）管理聊天区域的双页切换：`currentIndex: 0` 为空白占位页，`currentIndex: 1` 为真实聊天页；点击联系人后自动切换
-  - 搜索框使用 `TextField` + 清除按钮实现，`clearBtn` 通过 `visible: searchInput.text.length > 0` 控制显隐，点击后清空输入并重置 `filterText`
+  - **搜索栏设计革新**：直接在 `TextField` 中使用 `leftPadding` 和 `rightPadding` 属性，将搜索图标和清除按钮完美内置于输入框内，高度还原 Telegram 的视觉风格 [cite: 24, 33, 34][cite_start]。清除按钮点击后会同时隐藏搜索面板 [cite: 36]。
+  - **搜索结果覆盖层**：`searchPanel` 叠加在联系人列表上方（`z: 3`）。为了避免属性绑定冲突，覆盖层的可见性彻底从声明式改为在 `searchInput` 的 `onTextChanged` 中进行命令式控制（`visible = true/false`）[cite: 28, 29]。
+  - **全局点击遮罩**： 根节点最外层添加了高层级（`z: 99`）的透明 `MouseArea`。当搜索框激活时，配合 `mapToItem` 坐标映射技术，精准拦截界面任意位置的点击事件。若点击发生在搜索区域之外，则自动清空输入并隐藏搜索界面，实现了现代化的沉浸式交互。
+  - **搜索结果交互**：点击搜索结果列表中的用户，会直接将 `uid` 和 `name` 数据向下传递，并触发根层级挂载的 `FindSuccessDialog` 弹窗，简化了跨组件的信号传递逻辑。
   - 聊天列表通过 `delegate` 的 `visible` 属性绑定 `searchInput.text` 实现实时过滤（后续建议迁移至 `QSortFilterProxyModel` 以提升性能）
   - 列表数据由 `ChatUserList`（C++ `QAbstractListModel`）提供，在 `Component.onCompleted` 中调用 `chatModel.addItem()` 填充初始测试数据
   - **动态加载**：`ListView.onAtYEndChanged` 检测滚动到底部，自动调用 `chatModel.loadMoreItems(10)`，替代原 `eventFilter` 滚轮事件捕获方案
   - **加载覆盖层**：联系人面板上方叠加半透明 `Rectangle`（`z: 5`）+ `BusyIndicator` + 文字提示，通过 `visible: chatModel.isLoading()` 绑定加载状态，替代原 `LoadingDlg` 对话框
   - 输入框捕获 `Keys.onPressed`：`Enter` 触发 `sendMessage()`，`Shift+Enter` 正常换行
-  - `sendMessage()` 函数向 `messageModel` 插入消息，预留 `TcpMgr` 接口
-  - 滚动条通过 `ScrollBar` 组件设置 `policy: ScrollBar.AsNeeded`，参考 Telegram 风格
-  - **`sendMessage()` 函数**: 
-    - 支持文本消息和图片消息两种类型，
-    - 新增 `receiveMessage()` 函数，用于接收对方消息，后续由 `TcpMgr` 的 `sig_recv_message` 信号触发
   - 侧边栏互斥切换：顶层 activeTab 字符串属性统一管理四个 SidebarIconBtn 的激活状态，点击任意按钮只需赋值 activeTab，其余按钮的 isActive 绑定自动失活。
-  - 搜索结果覆盖层：searchPanel（z: 2）叠加在联系人列表上方，visible: searchInput.text.length > 0 替代 ShowSearch(bool) 命令式调用；内含固定 header（"添加好友"提示条）和动态 ListView（数据来自 searchResultModel）。
-  - 搜索防抖：searchDebounceTimer（300ms）节流用户输入，避免每次按键触发网络请求。
-  - sig_user_search 对接：在 Component.onCompleted 中连接 C++ 侧搜索结果信号，将 QVariantList 数据逐项 append 到 searchResultModel。
-
+  - 搜索防抖：`searchDebounceTimer`（300ms）节流用户输入，避免每次按键触发网络请求。
+  
 #### `ChatView.qml`
 - **功能**: 滚动聊天消息区域组件
 - **对外接口**:
@@ -246,6 +241,20 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 所有文字颜色、字号与原 QSS 规则对应：用户名 14px/#000000，消息预览 12px/#999999，时间 12px/#8c8c8c
   - 无需外部 `.ui` 文件，无需 QSS，样式完全内联在 QML 属性中
 
+#### `FindSuccessDialog.qml`
+- **功能**: 用户搜索命中后的详情展示弹窗组件。由 `ChatDialog` 的搜索结果列表点击事件触发。
+- **对外接口**:
+  - `userId` (string): 目标用户 ID。
+  - `userName` (string): 目标用户名，默认 "未知用户"。
+  - `avatarSource` (string): 头像资源路径，支持本地或网络路径。
+- **特性**:
+  - **现代化卡片设计**: 采用 `Dialog` 作为基础组件，完全重写 `background`，提供 `radius: 12` 的圆角白底卡片视觉。
+  - **沉浸式头部**: 使用 `Gradient` 绘制蓝色渐变（`#1A73E8` 到 `#0D47A1`）的背景头部（`120px` 高度），配合半圆角设计。
+  - **头像悬浮效果**: 利用 `anchors.bottomMargin: -30` 将圆形头像组件跨界悬浮于蓝色背景与白色内容区之间，提升 UI 层级感。
+  - **无缝数据绑定**: 组件内部文本和图片直接绑定对外声明的 `userId`、`userName` 属性。在 `ChatDialog.qml` 实例化时即可完成数据注入，无需复杂的 C++ 信号中转。
+  - **交互按钮**: 底部提供高亮“发送消息/添加好友”按钮，内置 `hovered` 状态检测与 `ColorAnimation`（150ms），增强可点击反馈。
+  - **弹窗遮罩**: 设置 `modal: true` 和 `anchors.centerIn: Overlay.overlay`，确保其处于屏幕中央并提供全局变暗的模态遮罩层。
+  
 #### `MessageBubble.qml`
 - **功能**: 统一气泡组件
 - **属性接口**:
@@ -483,6 +492,7 @@ SakuraChat/
 │   ├── ChatDialog.qml     # 聊天主界面（搜索框 + 聊天列表）（含 sendMessage / receiveMessage）
 │   ├── ChatView.qml       # 滚动聊天消息区域
 │   ├── ChatUserWid.qml    # 聊天列表 item 组件
+│   ├── FindSuccessDialog.qml # 搜索结果/添加好友弹窗
 │   ├── SidebarIconBtn.qml # 侧边栏图标按钮（替代 ClickedBtn C++）
 │   ├── AddGroupBtn.qml    # 创建群聊按钮（add_btn 三态）
 │   ├── ContactItem.qml    # 联系人列表项
@@ -590,7 +600,10 @@ SakuraChat/
 2. **按钮三态实现（替代 ClickedBtn）**：
   原 Qt Widgets 方案需继承 `QPushButton`、重写 `enterEvent / mousePressEvent / mouseReleaseEvent`、编写 QSS 三态样式、在构造函数调用 `SetState()`。QML 方案通过 `MouseArea` 的 `onEntered / onExited / onPressed / onReleased` 驱动 `btnState` 属性，`color` 绑定三态颜色表达式，`Behavior on color` 添加过渡动画，所有逻辑内联在组件文件中，无需任何 C++ 代码和外部样式文件。
 3. **搜索框（替代 CustomizeEdit + QSS）**：
-  原 Qt Widgets 方案需继承 `QLineEdit`、在 `paintEvent` 中手动绘制清除按钮、在 QSS 中配置样式。QML 方案在 `ChatDialog.qml` 中直接使用 `TextField` + `Image`（清除图标）组合，通过 `visible: searchInput.text.length > 0` 控制清除按钮的显隐，点击后调用 `searchInput.clear()` 清空并重置 `filterText`，输入长度限制通过 `maximumLength: 25` 声明式配置，无需 C++ 继承类，无需 QSS 文件。
+  - **样式与布局**：直接使用原生 `TextField`，通过设置 `leftPadding` 和 `rightPadding` 预留空间，并利用锚定（`anchors`）将图标置于输入框内层，完美复刻了 Telegram 沉浸式的搜索栏设计 [cite: 24, 33]。
+  - **显隐逻辑控制**：为了避免数据变更时的 `Binding Loop`，摒弃了 `searchPanel.visible` 与文本长度绑定的声明式写法。现改由输入框的 `onTextChanged` 事件全权接管，通过显式的命令式代码（`searchPanel.visible = true/false`）控制面板展现与数据重置 [cite: 28, 29]。
+  - **全局点击隐身**：引入了全局级透明遮罩（`MouseArea`），当搜索列表展开时自动激活。通过 `propagateComposedEvents` 穿透事件与 `mapToItem` 的相对坐标换算，智能判断用户的每一次点击行为。一旦检测到点击脱离了搜索输入框及结果面板区域，即刻自动收起搜索栏，带来了极为流畅的现代化交互体验。
+  - **扁平化组件通信**：废弃了冗长的信号链条。在搜索结果项点击事件中，直接定位并向 `FindSuccessDialog` 注入目标 `uid` 与 `name`，并调用 `open()` 方法呼出业务对话框，大幅降低了组件间的耦合度与心智负担。
 4. **聊天列表（替代 QListWidget + setItemWidget）**：
   原 Qt Widgets 方案通过 `QListWidget::addItem()` + `setItemWidget()` 手动挂载自定义 Widget，性能随条目增加而下降，QSS 与 C++ 代码耦合紧密。QML 方案使用 `ChatUserList`（继承 `QAbstractListModel`）作为数据源，`ListView` 作为视图，`ChatUserWid.qml` 作为 delegate，三者通过标准 Model/View 机制解耦。测试数据在 `Component.onCompleted` 中通过 `chatModel.addItem()` 填充，替代原 C++ `addChatUserList()` 函数。搜索过滤通过 delegate 的 `visible` 属性绑定 `searchInput.text` 实现实时过滤，无需重建列表。
 5. **动态加载更多（替代 eventFilter + LoadingDlg）**：

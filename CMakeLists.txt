@@ -2,9 +2,14 @@ cmake_minimum_required(VERSION 3.16)
 
 project(SakuraChat VERSION 0.1 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Network)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -30,6 +35,9 @@ qt_add_qml_module(appSakuraChat
         qml/MessageBubble.qml
         qml/ToolbarBtn.qml
         qml/ChatUserWid.qml
+        qml/SendBtn.qml
+        qml/ChatView.qml
+        qml/FindSuccessDialog.qml
     SOURCES
         src/global.h
         src/singleton.h
@@ -56,9 +64,7 @@ qt_add_qml_module(appSakuraChat
         README.md
         DevDoc.md
         config.ini
-        QML_FILES qml/SendBtn.qml
-        RESOURCES DevDoc.md
-        QML_FILES qml/ChatView.qml
+        DevDoc.md
 )
 
 if(WIN32)
@@ -80,9 +86,13 @@ set_target_properties(appSakuraChat PROPERTIES
 )
 
 target_link_libraries(appSakuraChat
-    PRIVATE Qt6::Quick
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Quick
+        Qt6::QuickControls2
+        Qt6::Network
 )
-
 include(GNUInstallDirs)
 install(TARGETS appSakuraChat
     BUNDLE DESTINATION .
@@ -90,14 +100,10 @@ install(TARGETS appSakuraChat
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release")
-    # 拷贝 config.ini 到输出目录
-    add_custom_command(
-        TARGET appSakuraChat POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
-            "$<TARGET_FILE_DIR:appSakuraChat>/config.ini"
-        COMMENT "Copying config.ini to output directory"
-    )
-endif()
+add_custom_command(TARGET appSakuraChat POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+        "$<TARGET_FILE_DIR:appSakuraChat>/config.ini"
+    COMMENT "Copying config.ini to output directory"
+)
 
