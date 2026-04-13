@@ -13,7 +13,7 @@ Dialog {
     // 对外属性，由 SearchList 的 itemClicked 信号传入
     property string userId: ""
     property string userName: "未知用户"
-    property string avatarSource: "qrc:/static/icons/default_avatar.png"
+    property string avatarSource: "qrc:/res/SakuraChat.png"
 
     // ── 自定义圆角背景 ──
     background: Rectangle {

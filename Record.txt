@@ -1,0 +1,6 @@
+在 tcpmgr.h 中，你的 TcpMgr 继承了这样一个东西：
+public std::enable_shared_from_this<TcpMgr>
+
+这强烈暗示了你的 Singleton 模板类底层使用的是 智能指针（std::shared_ptr） 来管理单例生命周期。也就是说，TcpMgr::GetInstance() 返回的很可能是一个 std::shared_ptr<TcpMgr>，而不是一个普通的裸指针（TcpMgr*）。
+
+但是，Qt 引擎的 setContextProperty 函数非常“老派”，它的第二个参数只接受裸指针（QObject *） 或者 QVariant。它不认识 C++11 的智能指针，所以编译器直接罢工了。

@@ -3,11 +3,14 @@
 
 #include <QObject>
 #include <QJsonObject>
+#include <QtQml/qqml.h>
 #include "global.h"
 
 class ResetController : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
+
 public:
     explicit ResetController(QObject *parent = nullptr);
 

@@ -1,14 +1,31 @@
 #ifndef TCPMGR_H
 #define TCPMGR_H
 #include <QTcpSocket>
+#include <QtQml/qqml.h>
+#include <QQmlEngine>
 #include "singleton.h"
 #include "global.h"
 
 class TcpMgr : public QObject, public Singleton<TcpMgr>, public std::enable_shared_from_this<TcpMgr>
 {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
 public:
     ~TcpMgr();
+
+    static TcpMgr *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
+    {
+        Q_UNUSED(qmlEngine)
+        Q_UNUSED(jsEngine)
+
+        TcpMgr *instance = TcpMgr::GetInstance().get();
+
+        QQmlEngine::setObjectOwnership(instance, QQmlEngine::CppOwnership);
+
+        return instance;
+    }
+
 private:
     friend class Singleton<TcpMgr>;
     TcpMgr();

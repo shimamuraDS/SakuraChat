@@ -38,6 +38,11 @@ qt_add_qml_module(appSakuraChat
         qml/SendBtn.qml
         qml/ChatView.qml
         qml/FindSuccessDialog.qml
+        qml/CommonButton.qml
+        qml/TagChip.qml
+        qml/TagInputBar.qml
+        qml/TagGrid.qml
+        qml/ApplyFriend.qml
     SOURCES
         src/global.h
         src/singleton.h
@@ -59,12 +64,20 @@ qt_add_qml_module(appSakuraChat
         src/configmanager.cpp
         src/chatuserlist.h
         src/chatuserlist.cpp
+        src/clickedoncelabel.h
+        src/clickedoncelabel.cpp
+        src/applyfriendmodel.h
+        src/applyfriendmodel.cpp
     RESOURCES
         sakurachat.qrc
         README.md
         DevDoc.md
         config.ini
         DevDoc.md
+        SOURCES src/contactuserlist.h src/contactuserlist.cpp
+        SOURCES src/applyfriendlist.h src/applyfriendlist.cpp
+        QML_FILES qml/ApplyFriendItem.qml
+        QML_FILES qml/ApplyFriendPage.qml
 )
 
 if(WIN32)
@@ -92,6 +105,7 @@ target_link_libraries(appSakuraChat
         Qt6::Quick
         Qt6::QuickControls2
         Qt6::Network
+        Qt6::Qml
 )
 include(GNUInstallDirs)
 install(TARGETS appSakuraChat

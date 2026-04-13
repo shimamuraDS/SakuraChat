@@ -3,10 +3,12 @@
 #include <QObject>
 #include "global.h"
 #include <QMap>
+#include <QtQml/qqml.h>
 
 class RegisterController : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
 public:
     explicit RegisterController(QObject *parent = nullptr);
 

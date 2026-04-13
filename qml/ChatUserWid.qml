@@ -13,6 +13,10 @@ Rectangle {
     property string lastMsg: ""
     property string msgTime: ""
 
+    readonly property bool isRealImage: headImg.startsWith("qrc:/") ||
+                                        headImg.startsWith("http") ||
+                                        headImg.startsWith("file://")
+
     Behavior on color { ColorAnimation { duration: 120 } }
 
     MouseArea {
@@ -43,9 +47,9 @@ Rectangle {
 
             Image {
                 anchors.fill: parent
-                source: headImg !== "" ? headImg : ""
+                source: isRealImage ? headImg : ""
                 fillMode: Image.PreserveAspectCrop
-                visible: headImg !== ""
+                visible: isRealImage
             }
 
             // 头像占位文字（无图时显示首字母）
@@ -55,7 +59,7 @@ Rectangle {
                 font.pixelSize: 20
                 font.bold: true
                 color: "#ffffff"
-                visible: headImg === ""
+                visible: !isRealImage
             }
         }
 
@@ -84,7 +88,6 @@ Rectangle {
                     text: msgTime
                     font.pixelSize: 12
                     color: "#8c8c8c"
-                    anchors.right: parent.right
                 }
             }
 

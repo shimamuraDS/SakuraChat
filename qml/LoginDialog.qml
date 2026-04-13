@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import SakuraChat
 
 Rectangle {
     id: loginDialog
-    anchors.fill: parent
     radius: 16
     border.color: "#ebebeb"
     border.width: 1
@@ -72,23 +72,34 @@ Rectangle {
         return true;
     }
 
-    // 监听LoginController的TCP连接信号
+    // 监听 LoginController 的信号
     Connections {
-        target: loginController
+        target: LoginController
 
+        function onLoginResult(success, error, message, user) {
+            if (!success) {
+                showTip(message || "登录失败", false);
+                return;
+            }
+            showTip("登录成功", true);
+            console.log("User logged in:", user);
+            // TODO: 跳转到主界面
+        }
+
+        // 把 onSig_connect_tcp 移回 LoginController 门下
         function onSig_connect_tcp(serverInfo) {
             console.log("开始连接聊天服务器...")
             isConnectingTcp = true
             showTip("正在连接聊天服务器...", true)
 
-            // 通知TcpMgr连接服务器
-            tcpMgr.slot_tcp_connect(serverInfo)
+            // 通知 TcpMgr 连接服务器（注意使用大写 TcpMgr 单例）
+            TcpMgr.slot_tcp_connect(serverInfo)
         }
     }
 
-    // 监听TcpMgr的连接结果信号
+    // 监听 TcpMgr 的信号（注意 target 改为大写）
     Connections {
-        target: tcpMgr
+        target: TcpMgr
 
         function onSig_con_success(success) {
             if (success) {
@@ -109,7 +120,7 @@ Rectangle {
             loginBtn.enabled = true
         }
 
-        function onSig_switch_chatdlg() {
+        function onSig_switch_chatlg() {
             console.log("登录成功，准备切换到聊天界面")
             showTip("登录成功！", true)
             // TODO: 切换到聊天主界面
@@ -118,7 +129,7 @@ Rectangle {
 
     // 监听登录结果
     Connections {
-        target: loginController
+        target: LoginController
         function onLoginResult(success, error, message, user) {
             if (!success) {
                 showTip(message || "登录失败", false);

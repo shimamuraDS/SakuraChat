@@ -25,6 +25,13 @@ Rectangle {
     readonly property color textPrimary:    "#000000"
     readonly property color textSecondary:  "#707070"
     readonly property color hoverOverlay:   "#1a000000"
+    readonly property color contactBg:        "#f1f2f3"
+    readonly property color contactDivider:   "#ede9e7"
+    readonly property color applyItemDivider: "#dbd9d9"
+    readonly property color addBtnNormal:     "#d3d7d4"
+    readonly property color addBtnHover:      "#D3D3D3"
+    readonly property color addBtnPress:      "#BEBEBE"
+    readonly property color addBtnText:       "#2cb46e"
 
     // 搜索结果数据模型（替代原 SearchList + addSearchItem）
     // 由 C++ 侧 TcpMgr/SearchController 的 sig_user_search 信号填充
@@ -97,6 +104,13 @@ Rectangle {
                     tooltipText: "聊天"
                     isActive: chatDialog.activeTab === "chat"
                     onClicked: chatDialog.activeTab = "chat"
+                }
+
+                SidebarIconBtn {
+                    iconText: "👤"
+                    tooltipText: "好友申请"
+                    isActive: activeTab === "apply"
+                    onClicked: activeTab = "apply"
                 }
 
                 SidebarIconBtn {
@@ -173,7 +187,7 @@ Rectangle {
                                 // 增加右侧内边距，为清除按钮留出空间
                                 rightPadding: 30
 
-                                // Telegram 风格：左侧搜索图标置于 TextField 内部
+                                // 左侧搜索图标置于 TextField 内部
                                 Image {
                                     anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
@@ -197,7 +211,6 @@ Rectangle {
                                         onClicked: {
                                             searchInput.clear()
                                             searchResultModel.clear()
-                                            searchModel.filterText = ""
                                             searchPanel.visible = false // 点击清除时隐藏面板
                                         }
                                     }
@@ -214,8 +227,6 @@ Rectangle {
                                         // 清空搜索结果，恢复联系人列表
                                         searchResultModel.clear()
                                     }
-                                    // 同步过滤联系人列表（联系人列表仍保留本地过滤）
-                                    searchModel.filterText = text
                                 }
                             }
                         }
@@ -226,42 +237,134 @@ Rectangle {
                     }
                 }
 
-                // 区域 3：联系人列表
-                ListView {
-                    id: chatListView
+                // 区域 3：左侧内容区多页签切换 (聊天记录 / 联系人列表)
+                StackLayout {
+                    id: leftContentStack
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    model: chatModel
-                    clip: true
-                    spacing: 2
+                    // 根据当前激活的 tab 动态切换页面
+                    currentIndex: {
+                            if (activeTab === "chat")    return 0;
+                            if (activeTab === "contact") return 1;
+                            if (activeTab === "apply")   return 2;
+                            return 0;
+                        }
 
-                    delegate: ChatUserWid {
-                        width: chatListView.width
-                        userName: model.name
-                        headImg: model.head
-                        lastMsg: model.lastMsg
-                        msgTime: model.time
-                        // 保留本地过滤，后续建议迁移至 QSortFilterProxyModel
-                        visible: searchInput.text === "" ||
-                                 model.name.toLowerCase().includes(searchInput.text.toLowerCase())
-                        onClicked: {
-                            console.log("点击了用户：" + model.name)
-                            mainStack.currentIndex = 1
+                    // ── 页面 0: 会话列表  ──
+                    ChatUserList {
+                        id: chatModel
+                    }
+                    ListView {
+                        id: chatListView
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        model: chatModel
+                        clip: true
+                        spacing: 2
+
+                        delegate: ChatUserWid {
+                            width: chatListView.width
+                            userName: model.name
+                            headImg: model.head
+                            lastMsg: model.lastMsg
+                            msgTime: model.time
+                            // 本地搜索过滤
+                            visible: searchInput.text === "" || model.name.toLowerCase().includes(searchInput.text.toLowerCase())
+                            onClicked: {
+                                console.log("点击了用户：" + model.name)
+                                mainStack.currentIndex = 1
+                            }
+                        }
+
+                        onAtYEndChanged: {
+                            if (atYEnd && !chatModel.isLoading()) {
+                                chatModel.loadMoreItems(10)
+                            }
+                        }
+
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    }
+
+                    // ── 页面 1: 联系人列表  ──
+                    Item {
+                        id: contactPage
+
+                        // C++ 模型实例
+                        ContactUserList { id: contactModel }
+
+                        // 分组提示 + 联系人列表
+                        ListView {
+                            id: contactListView
+                            anchors.fill: parent
+                            model: contactModel
+                            clip: true
+
+                            ScrollBar.vertical: ScrollBar {
+                                policy: ScrollBar.AsNeeded
+                            }
+
+                            // 分组分隔条：当当前 item 的 group 与上一条不同时显示
+                            delegate: Column {
+                                width: contactListView.width
+
+                                // 分组字母标题（GroupTipItem）
+                                Rectangle {
+                                    width: parent.width
+                                    height: model.index === 0 ||
+                                            contactModel.data(contactModel.index(model.index - 1, 0),
+                                                              /*GroupRole=*/Qt.UserRole + 3) !== model.group
+                                            ? 28 : 0
+                                    visible: height > 0
+                                    color: "#eaeaea"
+                                    Text {
+                                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                                        text: model.group
+                                        color: "#2e2f30"
+                                        font { pixelSize: 12; family: "Microsoft YaHei" }
+                                    }
+                                }
+
+                                // 联系人条目
+                                ContactItem {
+                                    contactName: model.name
+                                    contactHead: model.head
+                                    groupLabel:  model.group
+                                    onItemClicked: {
+                                        // 跳转到与该联系人的聊天页
+                                        mainStack.currentIndex = 1;
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    onAtYEndChanged: {
-                        if (atYEnd && !chatModel.isLoading()) {
-                            chatModel.loadMoreItems(10)
-                        }
+                    // 页面 2：好友申请列表
+                    ApplyFriendPage {
+                        id: applyFriendPage
                     }
 
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    // 填充测试数据
+                    // Component.onCompleted: {
+                    //     var mockData = [
+                    //         { name: "Alice",   head: "A", group: "A" },
+                    //         { name: "Aria",    head: "A", group: "A" },
+                    //         { name: "Bob",     head: "B", group: "B" },
+                    //         { name: "Charlie", head: "C", group: "C" },
+                    //         { name: "Diana",   head: "D", group: "D" },
+                    //         { name: "张三",    head: "张", group: "#"  },
+                    //         { name: "李四",    head: "李", group: "#"  }
+                    //     ];
+                    //     for (var i = 0; i < mockData.length; i++) {
+                    //         contactModel.addItem(mockData[i].name,
+                    //                              mockData[i].head,
+                    //                              mockData[i].group);
+                    //     }
+                    // }
                 }
             }
 
             // ── 搜索结果覆盖层 ────────────────────────────
-            // 叠加在联系人面板上方（z:3），visible 绑定输入长度，
+            // 叠加在联系人面板上方（z:3），visible 绑定输入长度
             Rectangle {
                 id: searchPanel
                 anchors.fill: parent
@@ -276,7 +379,7 @@ Rectangle {
                     clip: true
                     model: searchResultModel
 
-                    // 固定首条："添加好友"提示（替代原 addTipItem() 初始化的固定条目）
+                    // 固定首条："添加好友"提示
                     header: Rectangle {
                         width: searchListView.width
                         height: 56
@@ -290,7 +393,13 @@ Rectangle {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 console.log("触发添加好友，搜索词：", searchInput.text)
-                                // searchController.addFriend(searchInput.text)
+                                // 把搜索框里的内容当做账号传给弹窗
+                                findSuccessDialog.targetUid = searchInput.text
+                                findSuccessDialog.targetName = "搜索目标"
+
+                                // 呼出弹窗
+                                findSuccessDialog.open()
+
                             }
                         }
 
@@ -364,10 +473,10 @@ Rectangle {
                                 console.log("选中搜索用户：", model.name, "uid:", model.uid)
 
                                 // 触发打开 FindSuccessDialog
-                                // 假设您的弹窗有一个类似 targetUid 的属性用于接收数据
+                                // 假设弹窗有一个类似 targetUid 的属性用于接收数据
                                 findSuccessDialog.targetUid = model.uid
                                 findSuccessDialog.targetName = model.name // 如果需要传递用户名
-                                findSuccessDialog.open() // 打开弹窗 (或者 findSuccessDialog.visible = true)
+                                findSuccessDialog.open() // 打开弹窗
 
                                 // 可选：点击后隐藏搜索面板
                                 searchInput.clear()

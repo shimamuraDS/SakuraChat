@@ -77,7 +77,7 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - `loginController.sig_connect_tcp`: TCP连接开始
   - `tcpMgr.sig_con_success`: TCP连接结果
   - `tcpMgr.sig_login_failed`: 聊天登录失败
-  - `tcpMgr.sig_switch_chatdlg`: 登录成功，切换界面
+  - `tcpMgr.sig_switch_chatlg`: 登录成功，切换界面
 
 #### `RegisterDialog.qml`
 - **功能**: 用户注册界面
@@ -165,6 +165,8 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 区域 7：工具栏区域（附件、图片、表情、定位等）
   - 区域 8：文本输入区域（`TextArea` 多行，`Shift+Enter` 换行）
   - 区域 9：发送按钮区域
+  - 区域 10：联系人列表页（`ContactItem.qml` delegate + `ContactUserList` 模型，含字母分组标题条）
+  - 区域 11：好友申请列表页（`ApplyFriendPage.qml`，含 `ApplyFriendItem.qml` delegate + `ApplyFriendList` 模型）
 - **特性**:
   - 整体采用深蓝侧边栏（`#2b5278`）+ 白色面板 + 浅蓝灰聊天背景（`#f0f4f8`）的 Telegram 配色
   - 顶部声明颜色常量（`sidebarBg`、`accentBlue`、`msgBubbleSelf` 等），统一管理全局配色
@@ -181,6 +183,8 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 输入框捕获 `Keys.onPressed`：`Enter` 触发 `sendMessage()`，`Shift+Enter` 正常换行
   - 侧边栏互斥切换：顶层 activeTab 字符串属性统一管理四个 SidebarIconBtn 的激活状态，点击任意按钮只需赋值 activeTab，其余按钮的 isActive 绑定自动失活。
   - 搜索防抖：`searchDebounceTimer`（300ms）节流用户输入，避免每次按键触发网络请求。
+  - **左侧内容区多页切换**：`leftContentStack`（`StackLayout`）的 `currentIndex` 通过 `activeTab` 字符串的计算绑定自动驱动，`"chat"→0 / "contact"→1 / "apply"→2`，替代原 `stackedWidget->setCurrentIndex()` 的 C++ 槽函数切换方式。
+  - **全局配色常量扩展**：顶层新增 `contactBg`、`contactDivider`、`applyItemDivider`、`addBtnNormal/Hover/Press`、`addBtnText` 等常量，与既有 `sidebarBg`、`accentBlue` 统一管理。
   
 #### `ChatView.qml`
 - **功能**: 滚动聊天消息区域组件
@@ -194,6 +198,40 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - floatingScrollBar（ScrollBar）：通过 Binding 与 listView.visibleArea 双向联动，policy: ScrollBar.AsNeeded 实现按需显隐，替代原 pVScrollBar->setHidden(true) 的手动管理
   - footer：高度为 4px 的留白 Item，替代原 pVLayout_1 中 stretch 比例为 100000 的空白 QWidget
   - 气泡出现动画: 每条消息 delegate 实例化时触发 scale 从 0.85 到 1.0 的弹性动画（Easing.OutBack，180ms），对应原方案中可在 paintEvent 扩展的自定义绘制入口
+
+#### `ApplyFriend.qml`
+- **功能**: 好友申请主界面。
+- **特性**:
+  - 以 Popup 形式呈现，居中显示。
+  - 界面包含圆角白色卡片、标题栏（含关闭按钮）、ScrollView 内容区和底部确认/取消按钮栏。
+  - 内部实例化 ApplyFriendModel，通过属性绑定和信号槽将子组件与数据模型连接。
+  - 用蓝白配色、圆角卡片与胶囊标签设计。
+
+#### `CommonButton.qml`
+- **功能**: 通用按钮。
+- **特性**:
+  - 封装主色（#2AABEE）与次色（灰白）两种样式，通过 style 属性切换 。
+  - 带有圆角与 Behavior on color 的平滑悬停动画。
+
+#### `TagChip.qml`
+- **功能**: 单个标签胶囊组件。
+- **特性**:
+  - 蓝白胶囊外观，selected 为 true 时填充为主蓝色。
+  - 支持 closeable 模式（展示 × 按钮）与点击切换模式。
+  
+#### `TagInputBar.qml`
+- **功能**: 标签编辑栏。
+- **特性**:
+  - 使用 Flow 布局自动换行排列已选的 TagChip。
+  - 末尾内嵌 TextField，按回车键即可添加标签。
+  - 通过 tagAdded / tagRemoved 信号通知父组件处理数据。
+  
+#### `TagGrid.qml`
+- **功能**: 标签展示栏 。
+- **特性**:
+  - 使用 Flow 布局展示全部候选标签。
+  - 已选标签对应的 TagChip 高亮显示。
+  - 点击任意标签触发 tagToggled 信号，由上层的 ApplyFriendModel 处理切换逻辑 。
 
 #### `SidebarIconBtn.qml`
 - **功能**: 左侧图标栏按钮组件
@@ -224,13 +262,43 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - normal 状态显示灰色边框圆形按钮，hover/press 状态填充蓝色
   - 颜色与文字颜色均有 Behavior 过渡动画
   - 无需外部图片资源，无需 QSS 文件
+  
+#### `ApplyFriendPage.qml`
+- **功能**: 好友申请列表页，对应原 `ApplyFriendPage` 设计师界面类
+- **特性**:
+  - 整体背景色 `#f1f2f3`，左侧 `1px` 边框 `#ede9e7`
+  - 顶部标题栏（"新的朋友"，18px，`#f1f2f3` 背景），底部 `1px` 分隔线
+  - `ListView` + `ApplyFriendList`（C++ `QAbstractListModel`）+ `ApplyFriendItem.qml` delegate 三层 Model/View 架构
+  - `ScrollBar.vertical` 按需显示，替代原手动管理滚动条
+  - `Component.onCompleted` 中填充模拟申请数据
+  
+#### `ApplyFriendItem.qml`
+- **功能**: 好友申请列表单条条目组件，对应原设计师界面类 `ApplyFriendItem`
+- **对外属性**:
+  - `applyUid` (int): 申请人 UID
+  - `applyName` (string): 申请人用户名
+  - `applyHead` (string): 头像首字母
+  - `applyMessage` (string): 申请附言
+  - `added` (bool): 是否已添加，控制右侧按钮与文字的切换
+- **特性**:
+  - 条目高度 72px，背景 `#f1f2f3`，底部 `2px` 分隔线 `#dbd9d9`
+  - 左侧 48px 圆形彩色首字母头像
+  - 中部 `ColumnLayout`：用户名（16px / `#000000`）+ 附言（14px / `#a2a2a2`）
+  - 右侧通过 `Loader` 在"添加"按钮与"已添加"文字间动态切换：
+    - `added: false`：显示胶囊形"添加"按钮（`radius: 18`），支持 normal / hover / press 三态，颜色分别为 `#d3d7d4` / `#D3D3D3` / `#BEBEBE`，文字色 `#2cb46e`
+    - `added: true`：显示灰色"已添加"文字（`#999999`，12px）
+  - `Behavior on color`（100ms）动态属性刷新三态样式
+  - 发射 `addClicked(int uid)` 信号，由 `ApplyFriendPage.qml` 调用 `applyModel.setAdded(uid)`
 
 #### `ContactItem.qml`
-- **功能**: 近期聊天联系人列表项组件（区域 3）
+- **功能**: 联系人列表项组件，用于联系人列表页的 `ListView` delegate
 - **特性**:
-  - 显示头像（彩色圆形首字母）、联系人名称、最后一条消息、时间戳
-  - 未读消息角标（蓝色圆形数字）
-  - 悬浮高亮背景，Behavior 平滑过渡
+  - 显示圆形彩色首字母头像、联系人姓名
+  - 悬浮高亮背景（`#e8f4fd`），`Behavior on color` 平滑过渡（120ms）
+  - 底部分隔线从头像右侧起始
+  - 用户名 14px / `#000000`，字体 Microsoft YaHei
+  - 发射 `itemClicked(string name)` 信号供父级处理页面跳转
+  - 无需外部 `.ui` 文件，无需 QSS，样式完全内联
 
 #### `ChatUserWid.qml`
 - **功能**: 聊天列表 item 组件，替代原 Qt Widgets 中通过 `setItemWidget` 挂载的设计师界面类 `ChatUserWid`
@@ -379,7 +447,7 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
 - **信号**:
   - `sig_con_success`: TCP连接成功/失败信号
   - `sig_send_data`: 发送数据信号 (内部使用，保证线程安全)
-  - `sig_switch_chatdlg`: 登录成功，切换到聊天界面
+  - `sig_switch_chatlg`: 登录成功，切换到聊天界面
   - `sig_login_failed`: 聊天登录失败信号
   
 #### `CustomizeEdit` (customizeedit.h/cpp)
@@ -418,6 +486,46 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 线程安全的单例模式实现
   - 负责解析 `config.ini` 并生成完整的 Gate 服务器 URL
   - 彻底取代了原先在 `main.cpp` 中定义全局变量（如 `gate_url_prefix`）的做法，降低了代码耦合度。
+
+#### `ClickedOnceLabel` (ClickedOnceLabel.h/cpp)
+- **功能**: 限制仅允许点击一次的标签组件逻辑。
+- **关键特性**:
+  - 继承自 QQuickItem，支持在 QML 中使用 。
+  - 用户点击后发射携带文本参数的 clickedOnce 信号，并将自身标记为已点击，阻止后续点击事件响应 。
+  
+#### `ApplyFriendModel (ApplyFriendModel.h/cpp)
+- **功能**: 好友申请界面的核心数据模型。
+- **关键特性**:
+  - 继承自 QObject，通过 QML_ELEMENT 宏或 qmlRegisterType 注册到 QML 引擎 。
+  - 管理当前已选标签列表（selectedTags）、所有候选标签（allTags）以及验证消息文本（applyMessage）。
+  - 与 QML 界面实现极致解耦，UI 完全由 QML 描述，C++ 只负责数据管理与业务逻辑 。
+- **主要方法**:
+  - `initDemoTags`: 模拟服务器数据，初始化候选标签（后期可替换为真实网络接口回调更新）。
+  - `addTag / removeTag / toggleTag`: 负责处理标签的增删逻辑 。
+  - `confirmApply / cancelApply`: 确认与取消申请的逻辑入口，当前打印日志并发射信号，便于后期对接服务器网络请求 。
+
+#### `ContactUserList` (contactuserlist.h/cpp)
+- **功能**: 联系人列表数据模型，替代原 `QListWidget + setItemWidget` 方案
+- **关键特性**:
+  - 继承 `QAbstractListModel`，通过标准 Model/View 机制与 QML `ListView` 绑定
+  - 定义 `NameRole / HeadRole / GroupRole` 三个自定义角色
+  - `roleNames()` 返回 QML 可直接访问的属性名（`name`、`head`、`group`）
+  - `group` 字段存储分组首字母（如 "A"、"B"、"#"），供 QML delegate 判断是否渲染分组标题条
+  - 通过 `QML_ELEMENT` 宏注册，无需 `main.cpp` 手动调用 `qmlRegisterType`
+- **主要方法**:
+  - `addItem(name, head, group)`: 追加一条联系人记录
+  - `clear()`: 清空所有记录
+  
+#### `ApplyFriendList` (applyFriendList.h/cpp)
+- **功能**: 好友申请列表数据模型，替代原 `QListWidget` 管理申请条目的方案
+- **关键特性**:
+  - 继承 `QAbstractListModel`，定义 `UidRole / NameRole / HeadRole / MessageRole / IsAddedRole` 五个角色
+  - `IsAddedRole` 支持通过 `setData()` 写入，触发 `dataChanged` 信号，QML 侧 `model.isAdded` 绑定自动驱动 `Loader` 切换"添加按钮"与"已添加文字"
+  - 通过 `QML_ELEMENT` 宏注册
+- **主要方法**:
+  - `addItem(uid, name, head, message)`: 追加一条申请记录
+  - `setAdded(uid)`: 将指定 UID 的条目标记为已添加，触发局部 `dataChanged`
+  - `clear()`: 清空所有记录
 
 #### `Singleton` (singleton.h)
 - **功能**: 单例模式模板类
@@ -480,8 +588,16 @@ SakuraChat/
 │   ├── resetcontroller.cpp   # 重置控制器实现
 │   ├── customizeedit.h       # 搜索框逻辑封装头文件
 │   ├── customizeedit.cpp     # 搜索框逻辑封装实现
+│   ├── ClickedOnceLabel.h    # 单次点击组件头文件
+│   ├── ClickedOnceLabel.cpp  # 单次点击组件实现
+│   ├── ApplyFriendModel.h    # 好友申请数据模型头文件
+│   ├── ApplyFriendModel.cpp  # 好友申请数据模型实现
 │   ├── chatuserlist.h        # 聊天用户列表模型头文件
-│   └── chatuserlist.cpp      # 聊天用户列表模型实现
+│   ├── chatuserlist.cpp      # 聊天用户列表模型实现
+│   ├── contactuserlist.h     # 联系人列表模型头文件
+│   ├── contactuserlist.cpp   # 联系人列表模型实现
+│   ├── applyFriendList.h     # 好友申请列表模型头文件
+│   └── applyFriendList.cpp   # 好友申请列表模型实现
 ├── qml/
 │   ├── Main.qml           # 主窗口和界面切换逻辑
 │   ├── LoginDialog.qml    # 登录界面(完整TCP连接功能)
@@ -498,7 +614,14 @@ SakuraChat/
 │   ├── ContactItem.qml    # 联系人列表项
 │   ├── MessageBubble.qml  # 统一气泡组件（文本 + 图片，己方 + 对方）
 │   ├── SendBtn.qml        # 发送按钮
-│   └── ToolbarBtn.qml     # 工具栏按钮
+│   ├── CommonButton.qml  # 通用按键
+│   ├── TagChip.qml       # 单个标签胶囊
+│   ├── TagInputBar.qml       # 标签编辑栏
+│   ├── TagGrid.qml       # 标签展示栏
+│   ├── ApplyFriend.qml       # 好友申请主页面
+│   ├── ToolbarBtn.qml     # 工具栏按钮
+│   ├── ApplyFriendPage.qml   # 好友申请列表页
+│   └── ApplyFriendItem.qml   # 好友申请列表项
 └── sakurachat.qrc         # 资源文件
 ```
 

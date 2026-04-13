@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import SakuraChat
 
 ApplicationWindow {
     id: root
@@ -20,10 +21,6 @@ ApplicationWindow {
     // 界面状态：login | register | reset | chat
     property string currentView: "login"
 
-    Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
-    Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
-    Behavior on x { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
-    Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
 
     onCurrentViewChanged: {
         if (currentView === "chat") {
@@ -45,10 +42,10 @@ ApplicationWindow {
 
     // 监听 C++ 后端 TcpMgr 的切换信号
     Connections {
-        target: tcpMgr
+        target: TcpMgr
         ignoreUnknownSignals: true
 
-        function onSig_switch_chatdlg() {
+        function onSig_switch_chatlg() {
             root.currentView = "chat"
         }
     }

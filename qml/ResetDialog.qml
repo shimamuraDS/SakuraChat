@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import SakuraChat
 
 Rectangle {
     id: resetDialog
-    anchors.fill: parent
     color: "#f0f0f0"
     radius: 10
 
@@ -80,7 +80,7 @@ Rectangle {
 
     // 监听 C++ 后端信号
     Connections {
-        target: resetController
+        target: ResetController
 
         function onVerifyCodeResult(success, message) {
             showTip(message, success)

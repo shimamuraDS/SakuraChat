@@ -1,92 +1,81 @@
-// ContactItem.qml（区域 3 列表项）
 import QtQuick
 import QtQuick.Layouts
 
-Rectangle {
-    width: ListView.view ? ListView.view.width : 300
-    height: 64
-    color: hovered ? "#f5f5f5" : "transparent"
-    property bool hovered: false
+Item {
+    id: root
+    width: ListView.view ? ListView.view.width : 280
+    height: 56
 
-    Behavior on color { ColorAnimation { duration: 100 } }
+    // 对外属性
+    property string contactName: ""
+    property string contactHead: ""   // 头像首字母
+    property string groupLabel: ""
+
+    signal itemClicked(string name)
+
+    // 悬浮背景
+    Rectangle {
+        anchors.fill: parent
+        color: mouseArea.containsMouse ? "#e8f4fd" : "transparent"
+        Behavior on color { ColorAnimation { duration: 120 } }
+    }
+
+    // 底部分隔线（从头像右侧起始，与 Telegram 风格一致）
+    Rectangle {
+        anchors {
+            left: parent.left
+            leftMargin: 64
+            right: parent.right
+            bottom: parent.bottom
+        }
+        height: 1
+        color: "#ede9e7"
+    }
 
     RowLayout {
-        anchors.fill: parent
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-        spacing: 10
+        anchors {
+            fill: parent
+            leftMargin: 12
+            rightMargin: 12
+        }
+        spacing: 12
 
-        // 头像
+        // 圆形头像
         Rectangle {
-            width: 44; height: 44
-            radius: 22
-            color: model.avatarColor
-
+            width: 40; height: 40
+            radius: 20
+            // 根据首字母生成色相，与 ChatUserWid.qml 保持一致
+            color: {
+                var colors = ["#e17055","#0984e3","#00b894","#fdcb6e",
+                              "#6c5ce7","#fd79a8","#55efc4","#74b9ff"];
+                var idx = contactHead.length > 0
+                          ? contactHead.toUpperCase().charCodeAt(0) % colors.length
+                          : 0;
+                return colors[idx];
+            }
             Text {
                 anchors.centerIn: parent
-                text: model.name.charAt(0)
-                color: "#ffffff"
-                font.pixelSize: 16
-                font.bold: true
-            }
-
-            // 未读角标
-            Rectangle {
-                visible: model.unread > 0
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.topMargin: -2
-                anchors.rightMargin: -2
-                width: 18; height: 18
-                radius: 9
-                color: "#2b9af3"
-                Text {
-                    anchors.centerIn: parent
-                    text: model.unread > 99 ? "99+" : model.unread
-                    color: "#ffffff"
-                    font.pixelSize: 10
-                    font.bold: true
-                }
+                text: contactHead.length > 0 ? contactHead[0].toUpperCase() : "?"
+                color: "white"
+                font { pixelSize: 16; bold: true }
             }
         }
 
-        // 名称 + 最后消息
-        Column {
+        // 联系人姓名
+        Text {
             Layout.fillWidth: true
-            spacing: 4
-
-            RowLayout {
-                width: parent.width
-                Text {
-                    Layout.fillWidth: true
-                    text: model.name
-                    font.pixelSize: 14
-                    font.bold: true
-                    color: "#000000"
-                    elide: Text.ElideRight
-                }
-                Text {
-                    text: model.time
-                    font.pixelSize: 11
-                    color: "#9e9e9e"
-                }
-            }
-
-            Text {
-                width: parent.width
-                text: model.lastMsg
-                font.pixelSize: 13
-                color: "#707070"
-                elide: Text.ElideRight
-            }
+            text: contactName
+            color: "#000000"
+            font { pixelSize: 14; family: "Microsoft YaHei" }
+            elide: Text.ElideRight
         }
     }
 
     MouseArea {
+        id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: parent.hovered = true
-        onExited:  parent.hovered = false
+        onClicked: root.itemClicked(contactName)
     }
 }

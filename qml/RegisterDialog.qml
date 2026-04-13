@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import SakuraChat
 
 Rectangle {
     id: registerDialog
-    anchors.fill: parent
     radius: 12
     color: "#fefefe"
     border.color: "#dddddd"
@@ -57,7 +57,7 @@ Rectangle {
     // 信号与控制器交互区
     // ─────────────────────────────────────────────────────────
     Connections {
-        target: registerController
+        target: RegisterController
 
         function onVerifyCodeResult(success, message) {
             showTip(message, !success)
