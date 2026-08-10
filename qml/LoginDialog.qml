@@ -50,7 +50,7 @@ Rectangle {
             passwd: passwordField.text
         };
 
-        loginController.loginUser(userData);
+        LoginController.loginUser(userData);
     }
 
     // 邮箱验证
@@ -86,14 +86,11 @@ Rectangle {
             // TODO: 跳转到主界面
         }
 
-        // 把 onSig_connect_tcp 移回 LoginController 门下
+        // 把 onSig_connect_tcp 移回 LoginController 下
         function onSig_connect_tcp(serverInfo) {
             console.log("开始连接聊天服务器...")
             isConnectingTcp = true
             showTip("正在连接聊天服务器...", true)
-
-            // 通知 TcpMgr 连接服务器（注意使用大写 TcpMgr 单例）
-            TcpMgr.slot_tcp_connect(serverInfo)
         }
     }
 

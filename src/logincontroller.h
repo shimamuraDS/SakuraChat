@@ -9,6 +9,7 @@ class LoginController : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
+    QML_SINGLETON
 public:
     explicit LoginController(QObject *parent = nullptr);
 

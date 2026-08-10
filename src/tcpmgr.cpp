@@ -107,6 +107,12 @@ void TcpMgr::handleMsg(ReqId id, int len, QByteArray data) {
 void TcpMgr::slot_tcp_connect(ServerInfo si) {
     qDebug() << "receive tcp connect signal";
     qDebug() << "connecting to server...";
+
+    // 如果当前socket已经连接或者正在连接，先关闭并重置
+    if (_socket.state() != QAbstractSocket::UnconnectedState) {
+        _socket.close();
+    }
+
     _host = si.Host;
     _port = static_cast<uint16_t>(si.Port.toUInt());
     _socket.connectToHost(si.Host, _port);
@@ -115,7 +121,7 @@ void TcpMgr::slot_tcp_connect(ServerInfo si) {
 void TcpMgr::slot_send_data(ReqId reqId, QString data) {
     uint16_t id = reqId;
     QByteArray dataBytes = data.toUtf8();
-    quint16 len = static_cast<quint16>(data.size());
+    quint16 len = static_cast<quint16>(dataBytes.size());
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
 
