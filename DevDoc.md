@@ -434,16 +434,16 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
 - **功能**: 管理TCP长连接，处理与聊天服务器的通信
 - **关键特性**:
   - 单例模式实现
-  - TCP连接管理
-  - 消息发送和接收
-  - 线程安全的数据发送
-  - 网络字节序处理
+  - TCP连接管理与断开重连逻辑
+  - 消息发送和接收（包含协议头 ID+Length 粘包拆包解析）
+  - 线程安全的数据发送队列
+  - **网络字节序与 UTF-8 编码齐平**：`slot_send_data` 中使用 `dataBytes.size()`（UTF-8 字节流长度）作为 16-bit Header Payload 长度（BigEndian），保证多字节字符传输时拆包解析精准
 - **主要方法**:
   - `slot_tcp_connect`: 连接到聊天服务器
-  - `slot_send_data`: 发送数据到聊天服务器 (线程安全)
+  - `slot_send_data`: 发送数据到聊天服务器 (使用 UTF-8 字节数构建 Header，保证线程安全)
   - `slot_connected`: 处理连接成功
   - `slot_disconnected`: 处理连接断开
-  - `slot_recv_data`: 接收服务器数据
+  - `slot_recv_data`: 接收服务器数据并解包
 - **信号**:
   - `sig_con_success`: TCP连接成功/失败信号
   - `sig_send_data`: 发送数据信号 (内部使用，保证线程安全)
