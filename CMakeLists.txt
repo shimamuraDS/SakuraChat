@@ -43,6 +43,9 @@ qt_add_qml_module(appSakuraChat
         qml/TagInputBar.qml
         qml/TagGrid.qml
         qml/ApplyFriend.qml
+        qml/ApplyFriendItem.qml
+        qml/ApplyFriendPage.qml
+        qml/ReviewFriendApplication.qml
     SOURCES
         src/global.h
         src/singleton.h
@@ -68,16 +71,16 @@ qt_add_qml_module(appSakuraChat
         src/clickedoncelabel.cpp
         src/applyfriendmodel.h
         src/applyfriendmodel.cpp
+        src/contactuserlist.h
+        src/contactuserlist.cpp
+        src/applyfriendlist.h
+        src/applyfriendlist.cpp
     RESOURCES
         sakurachat.qrc
         README.md
         DevDoc.md
         config.ini
         DevDoc.md
-        SOURCES src/contactuserlist.h src/contactuserlist.cpp
-        SOURCES src/applyfriendlist.h src/applyfriendlist.cpp
-        QML_FILES qml/ApplyFriendItem.qml
-        QML_FILES qml/ApplyFriendPage.qml
 )
 
 if(WIN32)

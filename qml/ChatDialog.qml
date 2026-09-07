@@ -129,8 +129,33 @@ Rectangle {
                 SidebarIconBtn {
                     iconText: "👤"
                     tooltipText: "好友申请"
-                    isActive: activeTab === "apply"
-                    onClicked: activeTab = "apply"
+                    isActive: chatDialog.activeTab === "apply"
+                    onClicked: chatDialog.activeTab = "apply"
+
+                    // 新增：按钮右上角的待处理数量
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.topMargin: 2
+                        anchors.rightMargin: 2
+
+                        width: applyFriendPage.pendingCount > 99 ? 24 : 18
+                        height: 18
+                        radius: 9
+                        z: 10
+
+                        color: "#ef4444"
+                        visible: applyFriendPage.pendingCount > 0
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: applyFriendPage.pendingCount > 99
+                                  ? "99+"
+                                  : String(applyFriendPage.pendingCount)
+                            color: "white"
+                            font.pixelSize: 9
+                        }
+                    }
                 }
 
                 SidebarIconBtn {

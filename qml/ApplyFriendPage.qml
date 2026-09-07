@@ -1,12 +1,18 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import SakuraChat
 
 Item {
     id: root
 
+    // 向其他页面公开待处理申请数量
+    readonly property int pendingCount: applyModel.pendingCount
+
     // C++ 模型实例
-    ApplyFriendList { id: applyModel }
+    ApplyFriendList {
+        id: applyModel
+    }
 
     // 整体背景
     Rectangle {
@@ -52,24 +58,49 @@ Item {
             }
 
             delegate: ApplyFriendItem {
-                applyUid:     model.uid
-                applyName:    model.name
-                applyHead:    model.head
+                applyId: model.applyId
+                applyUid: model.uid
+                applyName: model.name
+                applyHead: model.head
                 applyMessage: model.message
-                added:        model.isAdded
-                onAddClicked: (uid) => {
-                    applyModel.setAdded(uid);
-                    // TODO: 对接网络层，发送添加好友请求
+                status: model.status
+
+                onReviewClicked: function(applyId, uid, name) {
+                    reviewDialog.applyId = applyId
+                    reviewDialog.userName = name
+                    reviewDialog.open()
                 }
             }
         }
     }
 
-    // 填充测试数据
+    Connections {
+        target: tcpMgr
+
+        function onSig_friend_apply(application) {
+            applyModel.upsertItem(application)
+        }
+
+        function onFriendApplySnapshotChanged() {
+            applyModel.replaceAll(tcpMgr.friendApplySnapshot)
+        }
+
+        function onSig_friend_apply_resolved(error, result, applyId, agree) {
+            if (error === 0 && result === 0)
+                applyModel.setStatus(applyId, agree ? 1 : 2)
+        }
+    }
+
     Component.onCompleted: {
-        applyModel.addItem(1001, "Alice",  "A", "你好，我是 Alice！");
-        applyModel.addItem(1002, "Bob",    "B", "我们一起学习吧");
-        applyModel.addItem(1003, "Charlie","C", "来自共同好友的介绍");
-        applyModel.addItem(1004, "张三",   "张","很高兴认识你");
+        // 页面可能晚于登录回包创建，必须主动读取已保存的快照。
+        applyModel.replaceAll(tcpMgr.friendApplySnapshot)
+    }
+
+    ReviewFriendApplication {
+        id: reviewDialog
+        enabled: !tcpMgr.reviewPending
+        onResolved: function(applyId, agree) {
+            tcpMgr.resolveFriendApply(applyId, agree)
+        }
     }
 }

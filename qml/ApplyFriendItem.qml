@@ -11,9 +11,10 @@ Item {
     property string applyName:    ""
     property string applyHead:    ""
     property string applyMessage: ""
-    property bool   added:        false
+    property var applyId: 0
+    property int status: 0
 
-    signal addClicked(int uid)
+    signal reviewClicked(var applyId, int uid, string name)
 
     // 条目背景
     Rectangle {
@@ -85,15 +86,15 @@ Item {
         // 右侧：添加按钮 或 已添加文字
         Loader {
             active: true
-            sourceComponent: added ? alreadyAddedComp : addBtnComp
+            sourceComponent: root.status === 0 ? addBtnComp : alreadyAddedComp
         }
     }
 
-    // "已添加"文字组件
+    // 文字组件
     Component {
         id: alreadyAddedComp
         Text {
-            text: "已添加"
+            text: root.status === 1 ? "已添加" : root.status === 2 ? "已拒绝" : "已撤销"
             color: "#999999"
             font { pixelSize: 12; family: "Microsoft YaHei" }
         }
@@ -131,7 +132,9 @@ Item {
                 onExited:   { addBtnRect._hovered = false; addBtnRect._pressed = false }
                 onPressed:  addBtnRect._pressed = true
                 onReleased: addBtnRect._pressed = false
-                onClicked:  root.addClicked(applyUid)
+                onClicked: {
+                    root.reviewClicked(root.applyId, root.applyUid, root.applyName)
+                }
             }
         }
     }

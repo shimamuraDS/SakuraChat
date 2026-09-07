@@ -31,15 +31,19 @@ public:
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-    bool setData(const QModelIndex &index, const QVariant &value, int role) override;
     QHash<int, QByteArray> roleNames() const override;
+    int pendingCount() const;
 
-    Q_INVOKABLE void addItem(int uid,
-                             const QString &name,
-                             const QString &head,
-                             const QString &message);
-    Q_INVOKABLE void setAdded(int uid);
+    Q_INVOKABLE void upsertItem(const QVariantMap &application);
+    Q_INVOKABLE void setStatus(qint64 applyId, int status);
+    Q_INVOKABLE void replaceAll(const QVariantList &applications);
     Q_INVOKABLE void clear();
+
+signals:
+    void pendingCountChanged();
+
 private:
+    // 把网络传来的 QVariantMap 转成一条申请记录
+    static bool parseItem(const QVariantMap &application, ApplyInfo &item);
     QList<ApplyInfo> m_items;
 };
