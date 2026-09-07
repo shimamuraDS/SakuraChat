@@ -2,6 +2,7 @@
 #include "usermgr.h"
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0) {
     QObject::connect(&_socket, &QTcpSocket::connected, [&]() {
@@ -38,7 +39,7 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
             QByteArray messageBody = _buffer.mid(0, _message_len);
 
             _buffer = _buffer.mid(_message_len);
-            handleMsg(ReqId(_message_id), _message_len, messageBody);
+            handleMsg(static_cast<ReqId>(_message_id), _message_len, messageBody);
         }
     });
 
@@ -64,7 +65,7 @@ TcpMgr::~TcpMgr() {
 }
 
 void TcpMgr::initHandlers() {
-    _handlers.insert(ID_CHAT_LOGIN_RSP, [this](ReqId id, int len, QByteArray data) {
+    _handlers.insert(ID_CHAT_LOGIN_RSP, [this](ReqId id, int len, const QByteArray &data) {
         Q_UNUSED(len);
         qDebug() << "handle id is " << id << "data is " << data;
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
@@ -90,11 +91,131 @@ void TcpMgr::initHandlers() {
         UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
         UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
 
+        QVariantList applications;
+        const auto array = jsonObj["apply_list"].toArray();
+        for (const auto &value : array) {
+            const auto source = value.toObject();
+            QVariantMap item;
+            item["applyId"] = source["apply_id"].toVariant().toLongLong();
+            item["uid"] = source["uid"].toInt();
+            item["name"] = source["name"].toString();
+            item["head"] = source["icon"].toString();
+            item["message"] = source["message"].toString();
+            item["status"] = source["status"].toInt();
+            applications.append(item);
+        }
+        _friendApplySnapshot = applications;
+        emit friendApplySnapshotChanged();
+
         emit sig_switch_chatlg();
     });
+
+    _handlers.insert(ID_SEARCH_USER_RSP,
+                     [this](ReqId, int, const QByteArray &data) {
+                         _searchPending = false;
+                         emit searchPendingChanged();
+
+                         const auto doc = QJsonDocument::fromJson(data);
+                         if (!doc.isObject()) {
+                             emit sig_search_failed(ErrorCodes::ERR_JSON, "响应格式错误");
+                             return;
+                         }
+
+                         const QJsonObject root = doc.object();
+                         if (root["error"].toInt(-1) != ErrorCodes::SUCCESS) {
+                             emit sig_search_failed(root["error"].toInt(), "查询失败");
+                             return;
+                         }
+
+                         QVariantList results;
+                         if (root["found"].toBool(false)) {
+                             QVariantMap user;
+                             user["uid"] = root["uid"].toInt();
+                             user["name"] = root["name"].toString();
+                             user["nick"] = root["nick"].toString();
+                             user["desc"] = root["desc"].toString();
+                             user["gender"] = root["gender"].toInt();
+                             user["icon"] = root["icon"].toString();
+                             user["isFriend"] = root["is_friend"].toBool(false);
+                             results.append(user);
+                         }
+                         emit sig_user_search(results);
+                     });
+
+    _handlers.insert(ID_ADD_FRIEND_RSP,
+                     [this](ReqId, int, const QByteArray &data) {
+                         _applyPending = false;
+                         emit applyPendingChanged();
+
+                         const auto doc = QJsonDocument::fromJson(data);
+                         if (!doc.isObject()) {
+                             emit sig_friend_apply_result(ErrorCodes::ERR_JSON, -1, 0);
+                             return;
+                         }
+
+                         const auto root = doc.object();
+                         emit sig_friend_apply_result(
+                             root["error"].toInt(-1),
+                             root["result"].toInt(-1),
+                             root["apply_id"].toVariant().toLongLong());
+                     });
+
+    _handlers.insert(ID_NOTIFY_ADD_FRIEND_REQ,
+                     [this](ReqId, int, const QByteArray &data) {
+                         const auto root = QJsonDocument::fromJson(data).object();
+                         if (root["error"].toInt(-1) != ErrorCodes::SUCCESS)
+                             return;
+
+                         QVariantMap item;
+                         item["applyId"] = root["apply_id"].toVariant().toLongLong();
+                         item["uid"] = root["applyuid"].toInt();
+                         item["name"] = root["name"].toString();
+                         item["head"] = root["icon"].toString();
+                         item["message"] = root["message"].toString();
+                         item["status"] = 0;
+                         emit sig_friend_apply(item);
+                     });
+
+    _handlers.insert(ID_AUTH_FRIEND_RSP,
+                     [this](ReqId, int, const QByteArray &data) {
+                         _reviewPending = false;
+                         emit reviewPendingChanged();
+
+                         const auto doc = QJsonDocument::fromJson(data);
+                         if (!doc.isObject()) {
+                             emit sig_friend_apply_resolved(
+                                 ErrorCodes::ERR_JSON, -1, 0, false);
+                             return;
+                         }
+
+                         const auto root = doc.object();
+                         emit sig_friend_apply_resolved(
+                             root["error"].toInt(-1),
+                             root["result"].toInt(-1),
+                             root["apply_id"].toVariant().toLongLong(),
+                             root["agree"].toBool(false));
+                     });
+
+    _handlers.insert(ID_NOTIFY_AUTH_FRIEND_REQ,
+                     [this](ReqId, int, const QByteArray &data) {
+                         const auto doc = QJsonDocument::fromJson(data);
+                         if (!doc.isObject())
+                             return;
+
+                         const auto root = doc.object();
+                         if (root["error"].toInt(-1) != ErrorCodes::SUCCESS ||
+                             root["result"].toInt(-1) != 0) {
+                             return;
+                         }
+
+                         emit sig_friend_auth_notified(
+                             root["apply_id"].toVariant().toLongLong(),
+                             root["agree"].toBool(false),
+                             root["peer_uid"].toInt());
+                     });
 }
 
-void TcpMgr::handleMsg(ReqId id, int len, QByteArray data) {
+void TcpMgr::handleMsg(ReqId id, int len, const QByteArray &data) {
     auto find_iter = _handlers.find(id);
     if (find_iter == _handlers.end()) {
         qDebug() << "not found id [" << id << "] to handle";
@@ -119,7 +240,7 @@ void TcpMgr::slot_tcp_connect(ServerInfo si) {
 }
 
 void TcpMgr::slot_send_data(ReqId reqId, QString data) {
-    uint16_t id = reqId;
+    const auto id = static_cast<quint16>(reqId);
     QByteArray dataBytes = data.toUtf8();
     quint16 len = static_cast<quint16>(dataBytes.size());
     QByteArray block;
@@ -130,4 +251,59 @@ void TcpMgr::slot_send_data(ReqId reqId, QString data) {
     block.append(dataBytes);
 
     _socket.write(block);
+}
+
+void TcpMgr::sendJson(ReqId id, const QJsonObject &object) {
+    slot_send_data(id, QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact)));
+}
+
+
+void TcpMgr::searchUser(const QString &keyword) {
+    const QString value = keyword.trimmed();
+    if (value.isEmpty() || _searchPending)
+        return;
+
+    _searchPending = true;
+    emit searchPendingChanged();
+    sendJson(ID_SEARCH_USER_REQ, {{"keyword", value}});
+}
+
+void TcpMgr::applyFriend(int toUid, const QString &descs, const QString &backName) {
+    if (toUid <= 0 || _applyPending)
+        return;
+
+    _applyPending = true;
+    emit applyPendingChanged();
+    sendJson(ID_ADD_FRIEND_REQ, {
+                                    {"touid", toUid},
+                                    {"descs", descs.trimmed()},
+                                    {"back_name", backName.trimmed()}
+                                });
+}
+
+void TcpMgr::resolveFriendApply(qint64 applyId, bool agree) {
+    if (applyId <= 0 || _reviewPending)
+        return;
+
+    _reviewPending = true;
+    emit reviewPendingChanged();
+    sendJson(ID_AUTH_FRIEND_REQ, {
+                                     {"apply_id", applyId},
+                                     {"agree", agree}
+                                 });
+}
+
+void TcpMgr::resetBusinessPending() {
+    if (_searchPending) {
+        _searchPending = false;
+        emit searchPendingChanged();
+    }
+    if (_applyPending) {
+        _applyPending = false;
+        emit applyPendingChanged();
+    }
+    if (_reviewPending) {
+        _reviewPending = false;
+        emit reviewPendingChanged();
+    }
 }

@@ -124,21 +124,6 @@ Rectangle {
         }
     }
 
-    // 监听登录结果
-    Connections {
-        target: LoginController
-        function onLoginResult(success, error, message, user) {
-            if (!success) {
-                showTip(message || "登录失败", false);
-                return;
-            }
-
-            showTip("登录成功", true);
-            console.log("User logged in:", user);
-            // TODO: 跳转到主界面
-        }
-    }
-
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 18

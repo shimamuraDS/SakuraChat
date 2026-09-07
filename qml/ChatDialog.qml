@@ -45,23 +45,43 @@ Rectangle {
         interval: 300
         repeat: false
         onTriggered: {
-            if (searchInput.text.length > 0) {
-                // 此处调用 C++ 搜索接口，例如：
-                // searchController.searchUser(searchInput.text)
-                console.log("发起用户搜索：", searchInput.text)
+            if (searchInput.text.trim().length > 0) {
+                // 用户搜索
+                tcpMgr.searchUser(searchInput.text)
             }
         }
     }
 
-    // 初始化：连接 C++ 搜索结果信号
-    Component.onCompleted: {
-        // 连接搜索结果信号，将 C++ 数据填充到 searchResultModel
-        tcpMgr.sig_user_search.connect(function(results) {
+    // 搜索错误信息，供搜索面板读取
+    property string searchError: ""
+
+    Connections {
+        target: tcpMgr
+
+        function onSig_user_search(results) {
+            chatDialog.searchError = ""
             searchResultModel.clear()
-            for (var i = 0; i < results.length; i++) {
+
+            for (let i = 0; i < results.length; ++i)
                 searchResultModel.append(results[i])
+        }
+
+        function onSig_search_failed(error, message) {
+            searchResultModel.clear()
+            chatDialog.searchError = message + "（" + error + "）"
+        }
+
+        function onSig_friend_apply_result(error, result, applyId) {
+            if (error !== 0) {
+                console.warn("好友申请请求失败：", error)
+            } else if (result === 0) {
+                console.log("好友申请已保存，applyId =", applyId)
+            } else if (result === 1) {
+                console.log("双方已经是好友")
+            } else {
+                console.warn("好友申请未成功：", result)
             }
-        })
+        }
     }
 
     RowLayout {
@@ -218,6 +238,7 @@ Rectangle {
 
                                 // 按照要求修改输入逻辑
                                 onTextChanged: {
+                                    chatDialog.searchError = ""
                                     if (text.length > 0) {
                                         searchPanel.visible = true // 显式显示搜索结果面板
                                         // 防抖触发搜索请求
@@ -392,14 +413,13 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                console.log("触发添加好友，搜索词：", searchInput.text)
-                                // 把搜索框里的内容当做账号传给弹窗
-                                findSuccessDialog.targetUid = searchInput.text
-                                findSuccessDialog.targetName = "搜索目标"
+                                // 点击顶部提示时执行查询
+                                const keyword = searchInput.text.trim()
+                                if (keyword.length === 0)
+                                    return
 
-                                // 呼出弹窗
-                                findSuccessDialog.open()
-
+                                searchDebounceTimer.stop()
+                                tcpMgr.searchUser(keyword)
                             }
                         }
 
@@ -470,15 +490,15 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                console.log("选中搜索用户：", model.name, "uid:", model.uid)
+                                // 把服务器返回的用户资料传给弹窗
+                                findSuccessDialog.userId = String(model.uid)
+                                findSuccessDialog.userName = model.name
+                                findSuccessDialog.avatarSource = model.icon || "qrc:/res/SakuraChat.png"
+                                findSuccessDialog.isFriend = model.isFriend
 
-                                // 触发打开 FindSuccessDialog
-                                // 假设弹窗有一个类似 targetUid 的属性用于接收数据
-                                findSuccessDialog.targetUid = model.uid
-                                findSuccessDialog.targetName = model.name // 如果需要传递用户名
-                                findSuccessDialog.open() // 打开弹窗
+                                findSuccessDialog.open()
 
-                                // 可选：点击后隐藏搜索面板
+                                // 所需数据已经复制到弹窗，最后再清空搜索框
                                 searchInput.clear()
                             }
                         }
@@ -543,14 +563,26 @@ Rectangle {
                     // 无结果时的空状态提示
                     footer: Item {
                         width: searchListView.width
-                        height: searchResultModel.count === 0 ? 80 : 0
+
                         visible: searchResultModel.count === 0
+                                 && !tcpMgr.searchPending
+                        height: visible ? 80 : 0
 
                         Text {
                             anchors.centerIn: parent
-                            text: "未找到相关用户"
+                            width: parent.width - 24
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.Wrap
+
+                            text: chatDialog.searchError.length > 0
+                                  ? chatDialog.searchError
+                                  : "未找到相关用户"
+
+                            color: chatDialog.searchError.length > 0
+                                   ? "#d14343"
+                                   : "#888888"
+
                             font.pixelSize: 13
-                            color: "#888888"
                             font.family: "Microsoft YaHei"
                         }
                     }
@@ -559,18 +591,16 @@ Rectangle {
                 }
             }
 
-            // 加载遮罩（z 值高于搜索结果面板）
+            // 加载遮罩
             Rectangle {
-                anchors.fill: parent
+                anchors.fill: searchPanel
+                z: 10
+                visible: searchPanel.visible && tcpMgr.searchPending
                 color: "#80ffffff"
-                visible: chatModel.isLoading()
-                z: 5
 
-                Column {
+                BusyIndicator {
                     anchors.centerIn: parent
-                    spacing: 8
-                    BusyIndicator { width: 32; height: 32 }
-                    Text { text: "加载中..."; color: "#8c8c8c"; font.pixelSize: 12 }
+                    running: parent.visible
                 }
             }
         }
@@ -814,16 +844,25 @@ Rectangle {
         onClicked: function(mouse) { mouse.accepted = false }
     }
 
-    // ── 搜索成功 / 添加好友弹窗 ──────────────────────────────
+    // 好友申请填写弹窗
+    ApplyFriend {
+        id: applyFriendPopup
+
+        onSubmitted: function(toUid, descs, backName) {
+            tcpMgr.applyFriend(toUid, descs, backName)
+        }
+    }
+
+    // 搜索结果资料弹窗
     FindSuccessDialog {
         id: findSuccessDialog
         anchors.centerIn: parent
 
-        // 预留属性供点击时赋值
-        property string targetUid: ""
-        property string targetName: ""
-
-        // 您可以在这里处理弹窗内部的确认添加等逻辑
-        // onAddFriendTriggered: { ... }
+        onApplyRequested: function(uid, name, avatar) {
+            applyFriendPopup.targetUid = uid
+            applyFriendPopup.targetName = name
+            applyFriendPopup.targetAvatar = avatar
+            applyFriendPopup.open()
+        }
     }
 }

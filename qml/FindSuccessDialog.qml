@@ -14,6 +14,9 @@ Dialog {
     property string userId: ""
     property string userName: "未知用户"
     property string avatarSource: "qrc:/res/SakuraChat.png"
+    property bool isFriend: false
+
+    signal applyRequested(int uid, string name, string avatar)
 
     // ── 自定义圆角背景 ──
     background: Rectangle {
@@ -86,7 +89,8 @@ Dialog {
             Layout.fillWidth: true
             Layout.leftMargin: 24
             Layout.rightMargin: 24
-            text: qsTr("发送消息")
+            text: root.isFriend ? "已是好友" : "添加好友"
+            enabled: !root.isFriend && Number(root.userId) > 0
             font.pixelSize: 14
 
             contentItem: Text {
@@ -104,7 +108,7 @@ Dialog {
             }
 
             onClicked: {
-                // 此处暂为界面演示，后续改为向服务器发送请求
+                root.applyRequested(Number(root.userId), root.userName, root.avatarSource)
                 root.close()
             }
         }

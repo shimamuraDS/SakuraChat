@@ -64,7 +64,7 @@ ApplicationWindow {
 
         // Index 0: 登录页
         LoginDialog {
-            onSwitchRegister: root.currentView = "chat"
+            onSwitchRegister: root.currentView = "register"
             onSwitchReset: root.currentView = "reset"
         }
 

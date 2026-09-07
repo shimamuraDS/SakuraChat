@@ -10,7 +10,20 @@ Popup {
     anchors.centerIn: parent
     padding: 0
 
+    property int targetUid: 0
+    property string targetName: ""
+    property string targetAvatar: ""
+
+    signal submitted(int toUid, string descs, string backName)
+
     ApplyFriendModel { id: model; Component.onCompleted: initDemoTags() }
+
+    TextField {
+        id: backNameField
+        Layout.fillWidth: true
+        placeholderText: root.targetName
+        maximumLength: 64
+    }
 
     background: Rectangle {
         radius: 12
@@ -111,10 +124,28 @@ Popup {
             Layout.margins: 16
             spacing: 12
 
-            TgButton { text: "取消"; style: "secondary"; Layout.fillWidth: true
-                       onClicked: { model.cancelApply(); root.close() } }
-            TgButton { text: "确认"; style: "primary";   Layout.fillWidth: true
-                       onClicked: { model.confirmApply(); root.close() } }
+            CommonButton {
+                text: "取消"
+                style: "secondary"
+                Layout.fillWidth: true
+                onClicked: root.close()
+            }
+
+            CommonButton {
+                text: "确认"
+                style: "primary"
+                Layout.fillWidth: true
+                enabled: root.targetUid > 0 && !tcpMgr.applyPending
+
+                onClicked: {
+                    const backName = backNameField.text.trim().length > 0
+                                   ? backNameField.text.trim()
+                                   : root.targetName
+                    root.submitted(root.targetUid, model.applyMessage, backName)
+                    // 请求发出后可以关闭弹窗；最终成功与否以服务器回包为准。
+                    root.close()
+                }
+            }
         }
     }
 }

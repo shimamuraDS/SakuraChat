@@ -4,24 +4,27 @@
 #include <QtQml/qqml.h>
 
 struct ApplyInfo {
-    int     uid;
+    qint64 applyId = 0;
+    int uid = 0;
     QString name;
     QString head;
     QString message;   // 申请附言
-    bool    isAdded;   // 是否已添加
+    int status = 0;  // 0待处理，1同意，2拒绝，3撤销
 };
 
 class ApplyFriendList : public QAbstractListModel {
     Q_OBJECT
     QML_ELEMENT
+    Q_PROPERTY(int pendingCount READ pendingCount NOTIFY pendingCountChanged)
 
 public:
     enum ApplyRoles {
-        UidRole     = Qt::UserRole + 1,
+        ApplyIdRole = Qt::UserRole + 1,
+        UidRole,
         NameRole,
         HeadRole,
         MessageRole,
-        IsAddedRole
+        StatusRole
     };
 
     explicit ApplyFriendList(QObject *parent = nullptr);

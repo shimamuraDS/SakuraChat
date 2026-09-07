@@ -19,3 +19,11 @@ void UserMgr::SetUid(int uid) {
 void UserMgr::SetToken(QString token) {
     _token = token;
 }
+
+int UserMgr::GetUid() const {
+    return _uid;
+}
+
+QString UserMgr::GetName() const {
+    return _name;
+}
