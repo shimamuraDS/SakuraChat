@@ -1,5 +1,7 @@
 # SakuraChat 项目文档
 
+更新日期：2026-09-08。好友章节按客户端 7fc7faf 静态核对，未构建或测试；完整链路缺口见 [好友功能现状](../docs/FRIEND_FEATURE_STATUS.md)，逐文件操作见 [适配教程](../docs/FRIEND_SEARCH_AND_APPLICATION_QML_TUTORIAL.md)。
+
 ## 项目概述
 
 SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通讯客户端。
@@ -270,7 +272,8 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 顶部标题栏（"新的朋友"，18px，`#f1f2f3` 背景），底部 `1px` 分隔线
   - `ListView` + `ApplyFriendList`（C++ `QAbstractListModel`）+ `ApplyFriendItem.qml` delegate 三层 Model/View 架构
   - `ScrollBar.vertical` 按需显示，替代原手动管理滚动条
-  - `Component.onCompleted` 中填充模拟申请数据
+  - Component.onCompleted 读取 tcpMgr.friendApplySnapshot，Connections 接收实时申请与审核结果
+  - 根对象公开 pendingCount；根对象内的 ReviewFriendApplication 实例由 delegate 打开，成功响应后才更新模型状态
   
 #### `ApplyFriendItem.qml`
 - **功能**: 好友申请列表单条条目组件，对应原设计师界面类 `ApplyFriendItem`
@@ -279,16 +282,17 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - `applyName` (string): 申请人用户名
   - `applyHead` (string): 头像首字母
   - `applyMessage` (string): 申请附言
-  - `added` (bool): 是否已添加，控制右侧按钮与文字的切换
+  - applyId (var): 申请主键；不是 32 位 UID，也不保证任意 64 位数值无损
+  - status (int): 0 待处理、1 同意、2 拒绝、3 撤销
 - **特性**:
   - 条目高度 72px，背景 `#f1f2f3`，底部 `2px` 分隔线 `#dbd9d9`
   - 左侧 48px 圆形彩色首字母头像
   - 中部 `ColumnLayout`：用户名（16px / `#000000`）+ 附言（14px / `#a2a2a2`）
   - 右侧通过 `Loader` 在"添加"按钮与"已添加"文字间动态切换：
-    - `added: false`：显示胶囊形"添加"按钮（`radius: 18`），支持 normal / hover / press 三态，颜色分别为 `#d3d7d4` / `#D3D3D3` / `#BEBEBE`，文字色 `#2cb46e`
-    - `added: true`：显示灰色"已添加"文字（`#999999`，12px）
+    - `status === 0`：显示胶囊形"添加"按钮（`radius: 18`），支持 normal / hover / press 三态，颜色分别为 `#d3d7d4` / `#D3D3D3` / `#BEBEBE`，文字色 `#2cb46e`
+    - status 非 0：显示“已添加/已拒绝/已撤销”文字（`#999999`，12px）
   - `Behavior on color`（100ms）动态属性刷新三态样式
-  - 发射 `addClicked(int uid)` 信号，由 `ApplyFriendPage.qml` 调用 `applyModel.setAdded(uid)`
+  - 发射 reviewClicked(applyId, uid, name)，申请页打开审核弹窗并提交 tcpMgr.resolveFriendApply；不在点击时直接修改状态
 
 #### `ContactItem.qml`
 - **功能**: 联系人列表项组件，用于联系人列表页的 `ListView` delegate
@@ -430,26 +434,15 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - 协同 `TcpMgr` 管理聊天服务器的长连接（仅 `LoginController`）
   - 通过信号将结果回调给 QML 端更新 UI
   
-#### `TcpMgr` (tcpmgr.h/cpp)
-- **功能**: 管理TCP长连接，处理与聊天服务器的通信
-- **关键特性**:
-  - 单例模式实现
-  - TCP连接管理与断开重连逻辑
-  - 消息发送和接收（包含协议头 ID+Length 粘包拆包解析）
-  - 线程安全的数据发送队列
-  - **网络字节序与 UTF-8 编码齐平**：`slot_send_data` 中使用 `dataBytes.size()`（UTF-8 字节流长度）作为 16-bit Header Payload 长度（BigEndian），保证多字节字符传输时拆包解析精准
-- **主要方法**:
-  - `slot_tcp_connect`: 连接到聊天服务器
-  - `slot_send_data`: 发送数据到聊天服务器 (使用 UTF-8 字节数构建 Header，保证线程安全)
-  - `slot_connected`: 处理连接成功
-  - `slot_disconnected`: 处理连接断开
-  - `slot_recv_data`: 接收服务器数据并解包
-- **信号**:
-  - `sig_con_success`: TCP连接成功/失败信号
-  - `sig_send_data`: 发送数据信号 (内部使用，保证线程安全)
-  - `sig_switch_chatlg`: 登录成功，切换到聊天界面
-  - `sig_login_failed`: 聊天登录失败信号
-  
+#### TcpMgr（src/tcpmgr.h/.cpp）
+
+- 使用 QTcpSocket 收发 4 字节头部加 UTF-8 JSON；客户端消息类型统一 ReqId。
+- searchUser、applyFriend、resolveFriendApply 分别发送 1007、1009、1012；对应 searchPending、applyPending、reviewPending 属性。
+- 提交结果信号为 sig_friend_apply_result(error,result,applyId)，审核结果为 sig_friend_apply_resolved(error,result,applyId,agree)。
+- 登录成功后保存 friendApplySnapshot、发出属性通知，再发 sig_switch_chatlg；页面创建时主动读快照。
+- sig_friend_apply 推送模型所需的 map；sig_friend_auth_notified 已发出，但当前 QML 未消费。
+- 尚无自动重连或业务超时；resetBusinessPending 已定义但未接入 errorOccurred/disconnected。没有独立业务发送队列，不保证任意线程直接调用安全。
+
 #### `CustomizeEdit` (customizeedit.h/cpp)
 - **功能**: 搜索框逻辑封装，替代原继承 QLineEdit 的同名 Qt Widgets 子类
 - **关键特性**:
@@ -516,16 +509,21 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
   - `addItem(name, head, group)`: 追加一条联系人记录
   - `clear()`: 清空所有记录
   
-#### `ApplyFriendList` (applyFriendList.h/cpp)
-- **功能**: 好友申请列表数据模型，替代原 `QListWidget` 管理申请条目的方案
-- **关键特性**:
-  - 继承 `QAbstractListModel`，定义 `UidRole / NameRole / HeadRole / MessageRole / IsAddedRole` 五个角色
-  - `IsAddedRole` 支持通过 `setData()` 写入，触发 `dataChanged` 信号，QML 侧 `model.isAdded` 绑定自动驱动 `Loader` 切换"添加按钮"与"已添加文字"
-  - 通过 `QML_ELEMENT` 宏注册
-- **主要方法**:
-  - `addItem(uid, name, head, message)`: 追加一条申请记录
-  - `setAdded(uid)`: 将指定 UID 的条目标记为已添加，触发局部 `dataChanged`
-  - `clear()`: 清空所有记录
+#### ApplyFriendList（src/applyfriendlist.h/.cpp）
+
+- QAbstractListModel + QML_ELEMENT，页面 import SakuraChat。
+- 角色为 applyId、uid、name、head、message、status；旧 IsAddedRole、setData、addItem、setAdded 已移除。
+- upsertItem(QVariantMap)：校验主键/UID/状态，存在则 dataChanged，不存在则 beginInsertRows/endInsertRows。
+- replaceAll(QVariantList)：按 applyId 去重，通过 beginResetModel/endResetModel 替换快照。
+- setStatus(qint64,int)：成功审核后更新一行状态；pendingCount 统计 status=0 的条目。
+- clear() 清空模型，但当前缺少 pendingCountChanged，是待修复项。
+- 页面模型实时更新未回写 TcpMgr 的登录快照，不能保证页面销毁重建后的状态完整性。
+
+#### ReviewFriendApplication.qml
+
+- 根 Dialog 定义 applyId、userName 和 resolved(applyId, agree) 信号。
+- 在 ApplyFriendPage 根 Item 下只创建一个实例；enabled 绑定 !tcpMgr.reviewPending。
+- CMake 主 QML_FILES 列表只登记一次；不要重复追加同名文件或修改自动生成的 qmlcache loader。
 
 #### `Singleton` (singleton.h)
 - **功能**: 单例模式模板类
