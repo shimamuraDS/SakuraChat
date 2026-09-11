@@ -1,5 +1,4 @@
-#ifndef TCPMGR_H
-#define TCPMGR_H
+#pragma once
 #include <QTcpSocket>
 #include <QJsonObject>
 #include <QMap>
@@ -9,6 +8,9 @@
 #include <functional>
 #include "singleton.h"
 #include "global.h"
+#include "chatstore.h"
+#include <QTimer>
+#include <QHash>
 
 class TcpMgr : public QObject, public Singleton<TcpMgr>, public std::enable_shared_from_this<TcpMgr>
 {
@@ -19,6 +21,9 @@ class TcpMgr : public QObject, public Singleton<TcpMgr>, public std::enable_shar
     Q_PROPERTY(bool applyPending READ applyPending NOTIFY applyPendingChanged)
     Q_PROPERTY(bool reviewPending READ reviewPending NOTIFY reviewPendingChanged)
     Q_PROPERTY(QVariantList friendApplySnapshot READ friendApplySnapshot NOTIFY friendApplySnapshotChanged)
+    Q_PROPERTY(ChatStore* chatStore READ chatStore CONSTANT)
+    Q_PROPERTY(bool chatReady READ chatReady NOTIFY chatReadyChanged)
+    Q_PROPERTY(bool friendSyncBusy READ friendSyncBusy NOTIFY friendSyncBusyChanged)
 public:
     ~TcpMgr();
 
@@ -44,6 +49,11 @@ public:
     QVariantList friendApplySnapshot() const {
         return _friendApplySnapshot;
     }
+    ChatStore *chatStore() const { return _chatStore; }
+    bool chatReady() const { return _chatReady; }
+    bool friendSyncBusy() const { return _friendSyncBusy; }
+    Q_INVOKABLE void refreshFriends();
+    Q_INVOKABLE QString sendTextMessage(int toUid, const QString &text);
 
 private:
     friend class Singleton<TcpMgr>;
@@ -60,10 +70,26 @@ private:
     QMap<ReqId, std::function<void(ReqId id, int len, const QByteArray &data)>> _handlers;
     void sendJson(ReqId id, const QJsonObject &object);
     void resetBusinessPending();
+    bool sendSmallJson(ReqId id, const QJsonObject &object);
+    void requestFriendPage();
+    void failFriendSync(const QString &reason);
+    void onFriendPage(const QByteArray &data);
+    void onTextReply(const QByteArray &data);
+    void onTextNotify(const QByteArray &data);
     bool _searchPending = false;
     bool _applyPending = false;
     bool _reviewPending = false;
     QVariantList _friendApplySnapshot;
+    ChatStore *_chatStore = nullptr; // QObject 子对象，由 TcpMgr 自动销毁
+    bool _chatReady = false;
+    bool _friendSyncBusy = false;
+    bool _friendSyncAgain = false;
+    QString _friendRequestId;
+    int _friendCursor = 0;
+    QVariantList _friendStaging;
+    QTimer _friendTimer;
+    QHash<QString, int> _pendingTexts; // msgid -> 接收者 UID
+    void handleTransportLoss();
 public slots:
     void slot_tcp_connect(ServerInfo);
     void slot_send_data(ReqId, QString data);
@@ -82,6 +108,7 @@ signals:
     void sig_friend_apply_result(int error, int result, qint64 applyId);
     void sig_friend_apply_resolved(int error, int result, qint64 applyId, bool agree);
     void sig_friend_auth_notified(qint64 applyId, bool agree, int peerUid);
+    void chatReadyChanged();
+    void friendSyncBusyChanged();
+    void chatError(QString message);
 };
-
-#endif // TCPMGR_H

@@ -9,9 +9,6 @@ Rectangle {
     width: 1000
     height: 680
     color: "#ffffff"
-
-    property string activeTab: "chat"
-
     // ───────────────────────────────────────────────────
     // 颜色常量
     // ───────────────────────────────────────────────────
@@ -32,6 +29,16 @@ Rectangle {
     readonly property color addBtnHover:      "#D3D3D3"
     readonly property color addBtnPress:      "#BEBEBE"
     readonly property color addBtnText:       "#2cb46e"
+
+    property string activeTab: "chat"
+    property string chatErrorMessage: ""
+
+    function openPeer(uid) {
+        if (tcpMgr.chatStore.openConversation(uid)) {
+            chatDialog.activeTab = "chat"
+            chatDialog.chatErrorMessage = ""
+        }
+    }
 
     // 搜索结果数据模型（替代原 SearchList + addSearchItem）
     // 由 C++ 侧 TcpMgr/SearchController 的 sig_user_search 信号填充
@@ -81,6 +88,10 @@ Rectangle {
             } else {
                 console.warn("好友申请未成功：", result)
             }
+        }
+
+        function onChatError(message) {
+            chatDialog.chatErrorMessage = message
         }
     }
 
@@ -288,124 +299,66 @@ Rectangle {
                     id: leftContentStack
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    // 根据当前激活的 tab 动态切换页面
-                    currentIndex: {
-                            if (activeTab === "chat")    return 0;
-                            if (activeTab === "contact") return 1;
-                            if (activeTab === "apply")   return 2;
-                            return 0;
-                        }
+                    currentIndex: chatDialog.activeTab === "contact" ? 1
+                                  : chatDialog.activeTab === "apply" ? 2 : 0
 
-                    // ── 页面 0: 会话列表  ──
-                    ChatUserList {
-                        id: chatModel
-                    }
                     ListView {
                         id: chatListView
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        model: chatModel
                         clip: true
-                        spacing: 2
+                        model: tcpMgr.chatStore.conversations
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                         delegate: ChatUserWid {
+                            required property var modelData
                             width: chatListView.width
-                            userName: model.name
-                            headImg: model.head
-                            lastMsg: model.lastMsg
-                            msgTime: model.time
-                            // 本地搜索过滤
-                            visible: searchInput.text === "" || model.name.toLowerCase().includes(searchInput.text.toLowerCase())
-                            onClicked: {
-                                console.log("点击了用户：" + model.name)
-                                mainStack.currentIndex = 1
-                            }
+                            userName: modelData.name
+                            headImg: modelData.head || ""
+                            lastMsg: (modelData.unread > 0
+                                      ? "[" + modelData.unread + " 条未读] " : "")
+                                     + modelData.lastMsg
+                            msgTime: modelData.time
+                            onClicked: chatDialog.openPeer(modelData.uid)
                         }
+                    }
 
-                        onAtYEndChanged: {
-                            if (atYEnd && !chatModel.isLoading()) {
-                                chatModel.loadMoreItems(10)
-                            }
-                        }
-
+                    ListView {
+                        id: contactListView
+                        clip: true
+                        model: tcpMgr.chatStore.friends
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                    }
 
-                    // ── 页面 1: 联系人列表  ──
-                    Item {
-                        id: contactPage
-
-                        // C++ 模型实例
-                        ContactUserList { id: contactModel }
-
-                        // 分组提示 + 联系人列表
-                        ListView {
-                            id: contactListView
-                            anchors.fill: parent
-                            model: contactModel
-                            clip: true
-
-                            ScrollBar.vertical: ScrollBar {
-                                policy: ScrollBar.AsNeeded
+                        header: Row {
+                            width: contactListView.width
+                            spacing: 8
+                            Button {
+                                text: tcpMgr.friendSyncBusy ? "同步中…" : "刷新联系人"
+                                enabled: tcpMgr.chatReady && !tcpMgr.friendSyncBusy
+                                onClicked: tcpMgr.refreshFriends()
                             }
+                            BusyIndicator {
+                                width: 32
+                                height: 32
+                                running: tcpMgr.friendSyncBusy
+                                visible: running
+                            }
+                        }
 
-                            // 分组分隔条：当当前 item 的 group 与上一条不同时显示
-                            delegate: Column {
-                                width: contactListView.width
-
-                                // 分组字母标题（GroupTipItem）
-                                Rectangle {
-                                    width: parent.width
-                                    height: model.index === 0 ||
-                                            contactModel.data(contactModel.index(model.index - 1, 0),
-                                                              /*GroupRole=*/Qt.UserRole + 3) !== model.group
-                                            ? 28 : 0
-                                    visible: height > 0
-                                    color: "#eaeaea"
-                                    Text {
-                                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
-                                        text: model.group
-                                        color: "#2e2f30"
-                                        font { pixelSize: 12; family: "Microsoft YaHei" }
-                                    }
-                                }
-
-                                // 联系人条目
-                                ContactItem {
-                                    contactName: model.name
-                                    contactHead: model.head
-                                    groupLabel:  model.group
-                                    onItemClicked: {
-                                        // 跳转到与该联系人的聊天页
-                                        mainStack.currentIndex = 1;
-                                    }
-                                }
+                        delegate: ContactItem {
+                            required property var modelData
+                            width: contactListView.width
+                            contactName: modelData.displayName
+                            // 当前 ContactItem 显示首字母，不把 URL 当作首字母传入。
+                            contactHead: modelData.displayName.slice(0, 1)
+                            groupLabel: ""
+                            onItemClicked: function(name) {
+                                chatDialog.openPeer(modelData.uid)
                             }
                         }
                     }
 
-                    // 页面 2：好友申请列表
                     ApplyFriendPage {
                         id: applyFriendPage
                     }
-
-                    // 填充测试数据
-                    // Component.onCompleted: {
-                    //     var mockData = [
-                    //         { name: "Alice",   head: "A", group: "A" },
-                    //         { name: "Aria",    head: "A", group: "A" },
-                    //         { name: "Bob",     head: "B", group: "B" },
-                    //         { name: "Charlie", head: "C", group: "C" },
-                    //         { name: "Diana",   head: "D", group: "D" },
-                    //         { name: "张三",    head: "张", group: "#"  },
-                    //         { name: "李四",    head: "李", group: "#"  }
-                    //     ];
-                    //     for (var i = 0; i < mockData.length; i++) {
-                    //         contactModel.addItem(mockData[i].name,
-                    //                              mockData[i].head,
-                    //                              mockData[i].group);
-                    //     }
-                    // }
                 }
             }
 
@@ -637,7 +590,7 @@ Rectangle {
             id: mainStack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: 0
+            currentIndex: tcpMgr.chatStore.activeUid > 0 ? 1 : 0
 
             // 页面 0: 未选择聊天时的占位页
             Rectangle {
@@ -653,6 +606,16 @@ Rectangle {
             // 页面 1: 真实聊天页
             ColumnLayout {
                 spacing: 0
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.margins: 8
+                    visible: chatDialog.chatErrorMessage.length > 0
+                    text: chatDialog.chatErrorMessage
+                    textFormat: Text.PlainText
+                    color: "#d14343"
+                    wrapMode: Text.Wrap
+                }
 
                 // 区域 5：顶部栏
                 Rectangle {
@@ -709,6 +672,7 @@ Rectangle {
                     id: chatView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    messageRows: tcpMgr.chatStore.messages
                 }
 
                 // 区域 7：工具栏
@@ -777,6 +741,7 @@ Rectangle {
                         SendBtn {
                             id: sendBtn
                             Layout.preferredWidth: 36; Layout.preferredHeight: 36
+                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeUid > 0
                             onClicked: sendMessage()
                         }
                     }
@@ -785,52 +750,16 @@ Rectangle {
         }
     }
 
-    // ── 当前会话用户信息 ─────────────────────────────────────
-    property string currentUserName: ""
-    property string currentUserIcon: ""
-
     // ── 发送消息 ─────────────────────────────────────────────
     function sendMessage() {
-        var inputText = messageInput.text.trim()
-        if (inputText.length === 0) return
-
-        var msgData = {
-            "messageText":  inputText,
-            "imageSource":  "",
-            "isSentByMe":   true,
-            "senderName":   currentUserName,
-            "avatarSource": currentUserIcon,
-            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
-        }
-        chatView.appendMessage(msgData)
-        messageInput.clear()
-        // tcpMgr.sendTextMessage(inputText)
+        var id = tcpMgr.sendTextMessage(tcpMgr.chatStore.activeUid, messageInput.text)
+        if (id.length > 0)
+            messageInput.clear()
     }
 
     // ── 图片消息发送 ─────────────────────────────────────────
     function sendImageMessage(imagePath) {
-        var msgData = {
-            "messageText":  "",
-            "imageSource":  imagePath,
-            "isSentByMe":   true,
-            "senderName":   currentUserName,
-            "avatarSource": currentUserIcon,
-            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
-        }
-        chatView.appendMessage(msgData)
-    }
-
-    // ── 接收对方消息（后续由 TcpMgr 信号触发）──────────────
-    function receiveMessage(senderName, avatarPath, text) {
-        var msgData = {
-            "messageText":  text,
-            "imageSource":  "",
-            "isSentByMe":   false,
-            "senderName":   senderName,
-            "avatarSource": avatarPath,
-            "timestamp":    Qt.formatTime(new Date(), "hh:mm")
-        }
-        chatView.appendMessage(msgData)
+        chatDialog.chatErrorMessage = "本篇只支持纯文本，图片和文件尚未接入"
     }
 
     // ── 全局透明遮罩：点击搜索列表以外区域时隐藏搜索框 ──

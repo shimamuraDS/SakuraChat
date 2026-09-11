@@ -87,6 +87,7 @@ Item {
             // 发送者名称（己方消息隐藏，对应原 NameLabel）
             Text {
                 id: nameLabel
+                textFormat: Text.PlainText
                 text: senderName
                 visible: !isSentByMe && senderName.length > 0
                 color: _nameColor
@@ -127,6 +128,7 @@ Item {
                     // 文本消息（替代原 TextBubble + QTextEdit）
                     Text {
                         id: textMsg
+                        textFormat: Text.PlainText
                         visible: !_isPic
                         anchors.fill: parent
                         text: messageText
@@ -171,6 +173,7 @@ Item {
             // 时间戳（替代原气泡内右下角绘制）
             Text {
                 id: timeLabel
+                textFormat: Text.PlainText
                 text: timestamp
                 color: _timeColor
                 font.pixelSize: 11

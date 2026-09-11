@@ -75,6 +75,7 @@ qt_add_qml_module(appSakuraChat
         src/contactuserlist.cpp
         src/applyfriendlist.h
         src/applyfriendlist.cpp
+        src/chatstore.h
     RESOURCES
         sakurachat.qrc
         README.md
