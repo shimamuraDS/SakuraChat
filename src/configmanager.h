@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QSslConfiguration>
 
 class ConfigManager : public QObject
 {
@@ -20,6 +21,8 @@ public:
 
     // 获取拼接好的 URL
     QString gateUrlPrefix() const { return m_gateUrlPrefix; }
+    bool development() const { return m_development; }
+    QSslConfiguration tlsConfiguration() const { return m_tls; }
 
 private:
     explicit ConfigManager(QObject *parent = nullptr) : QObject(parent) {}
@@ -28,6 +31,8 @@ private:
     ConfigManager& operator=(const ConfigManager&) = delete;
 
     QString m_gateUrlPrefix;
+    bool m_development = true;
+    QSslConfiguration m_tls;
 };
 
 #endif // CONFIGMANAGER_H

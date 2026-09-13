@@ -1,20 +1,30 @@
 #include "tcpmgr.h"
+#include "applock.h"
 #include "usermgr.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QGuiApplication>
+#include <QUuid>
+#include <QDateTime>
+#include "configmanager.h"
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0) {
     _chatStore = new ChatStore(this);
+    connect(_chatStore, &ChatStore::storageError, this, &TcpMgr::chatError);
+    connect(_chatStore, &ChatStore::conversationOpened, this, [this](int uid) { queueHistory(uid); pumpSync(); });
+    _syncTimer.setInterval(500);
+    connect(&_syncTimer, &QTimer::timeout, this, &TcpMgr::pumpSync);
     _friendTimer.setSingleShot(true);
     _friendTimer.setInterval(5000);
     connect(&_friendTimer, &QTimer::timeout, this, [this] {
-        failFriendSync("联系人同步超时；保留旧列表，可手动刷新");
+        failFriendSync("联系人加载较慢，请稍后刷新");
     });
 
     QObject::connect(&_socket, &QTcpSocket::connected, [&]() {
-        emit sig_con_success(true);
+        if (ConfigManager::instance().development()) emit sig_con_success(true);
     });
+    connect(&_socket, &QSslSocket::encrypted, this, [this] { emit sig_con_success(true); });
 
     connect(&_socket, &QTcpSocket::readyRead, this, [this] {
         _buffer.append(_socket.readAll());
@@ -26,7 +36,7 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
             stream >> id >> length;
             // 接收仍兼容现有登录回包；服务端内部长度为 short。
             if (length == 0 || length > 32763) {
-                emit chatError("收到非法长度帧");
+                emit chatError("连接出现异常，请重新登录");
                 _socket.abort();
                 return;
             }
@@ -54,9 +64,38 @@ TcpMgr::~TcpMgr() {
 }
 
 void TcpMgr::initHandlers() {
+    _handlers.insert(ID_MESSAGE_DELETE_RSP, [this](ReqId, int, const QByteArray &data) {
+        if (!_chatReady || _deleteRequest.isEmpty()) return;
+        const auto r = QJsonDocument::fromJson(data).object();
+        if (r["request_id"].toString() != _deleteRequest) return;
+        if (r["error"].toInt(-1) == 0 && (r["message_id"].toString() != _deleteServerId ||
+            !r["for_everyone"].isBool() || r["for_everyone"].toBool() != _deleteEveryone)) return;
+        _deleteRequest.clear(); emit deletionPendingChanged();
+        if (r["error"].toInt(-1) != 0) {
+            emit deletionFinished(false, tr("暂时无法删除，请确认消息权限或稍后重试")); return;
+        }
+        const bool saved = _chatStore->repository().hideDeletedMessage(_deleteSender, _deleteClientId, _deleteServerId);
+        if (_syncKind == ID_MESSAGE_RECEIPT_REQ && _receiptId == _deleteServerId) _syncRequest.clear();
+        _pendingTexts.remove(_deleteClientId); _pendingAttempts.remove(_deleteClientId);
+        _nextDeletionPoll = 0;
+        _chatStore->refresh();
+        emit deletionFinished(saved, saved ? tr("消息已删除") : tr("服务器已确认删除，但本地缓存处理失败，请保留缓存并重新登录同步"));
+        pumpSync();
+    });
+    _handlers.insert(ID_PRIVACY_RSP, [this](ReqId, int, const QByteArray &data) {
+        if (!_chatReady || _privacyRequest.isEmpty()) return;
+        const auto r = QJsonDocument::fromJson(data).object();
+        if (r["request_id"].toString() != _privacyRequest) return;
+        _privacyRequest.clear();
+        if (r["error"].toInt(-1) == 0) _privacy = r.toVariantMap();
+        else emit chatError(tr("隐私设置暂不可用，请稍后重试"));
+        emit privacyChanged();
+    });
+    for (ReqId id : {ID_CHAT_HISTORY_RSP, ID_MESSAGE_RECEIPT_RSP, ID_MESSAGE_STATUS_RSP, ID_CONVERSATION_LIST_RSP, ID_DELETION_EVENTS_RSP})
+        _handlers.insert(id, [this](ReqId, int, const QByteArray &data) { onSyncReply(data); });
     _handlers.insert(ID_CHAT_LOGIN_RSP, [this](ReqId id, int len, const QByteArray &data) {
         Q_UNUSED(len);
-        qDebug() << "handle id is " << id << "data is " << data;
+        qDebug() << "Login response type" << id;
         QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
         if (jsonDoc.isNull()) {
             qDebug() << "Failed to create QJsonDocument.";
@@ -76,6 +115,12 @@ void TcpMgr::initHandlers() {
             return;
         }
 
+        if (jsonObj["uid"].toInt() != _connectingUid || jsonObj["chat_protocol_version"].toInt() < 2) {
+            emit chatError("聊天服务版本不兼容，请先更新服务器");
+            emit sig_login_failed(ErrorCodes::ERR_NETWORK);
+            _socket.abort();
+            return;
+        }
         UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
         UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
         UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
@@ -96,11 +141,19 @@ void TcpMgr::initHandlers() {
         _friendApplySnapshot = applications;
         emit friendApplySnapshotChanged();
 
-        _chatStore->reset(UserMgr::GetInstance()->GetUid(), UserMgr::GetInstance()->GetName());
+        if (!_chatStore->beginAccount(UserMgr::GetInstance()->GetUid(), UserMgr::GetInstance()->GetName(),
+                                     ConfigManager::instance().gateUrlPrefix())) {
+            emit sig_login_failed(ErrorCodes::ERR_NETWORK);
+            _socket.abort();
+            return;
+        }
         _chatReady = true;
         emit chatReadyChanged();
+        _syncTimer.start();
+        _nextSweep = 0;
         refreshFriends();
         emit sig_switch_chatlg();
+        pumpSync();
     });
 
     _handlers.insert(ID_FRIEND_LIST_RSP, [this](ReqId, int, const QByteArray &data) {
@@ -236,24 +289,39 @@ void TcpMgr::handleMsg(ReqId id, int len, const QByteArray &data) {
 }
 
 void TcpMgr::slot_tcp_connect(ServerInfo si) {
+    ++_sessionGeneration;
+    _intentionalDisconnect = true;
     handleTransportLoss();
-    _chatStore->reset(0, QString{});
+    _chatStore->endAccount();
     qDebug() << "receive tcp connect signal";
     qDebug() << "connecting to server...";
 
     // 如果当前socket已经连接或者正在连接，先关闭并重置
     if (_socket.state() != QAbstractSocket::UnconnectedState) {
-        _socket.close();
+        _socket.abort();
     }
 
     _host = si.Host;
+    _connectingUid = si.Uid;
+    _intentionalDisconnect = false;
     _port = static_cast<uint16_t>(si.Port.toUInt());
-    _socket.connectToHost(si.Host, _port);
+    if (ConfigManager::instance().development()) {
+        if (si.Host != "127.0.0.1" && si.Host != "localhost" && si.Host != "::1") {
+            emit sig_con_success(false);
+            return;
+        }
+        _socket.connectToHost(si.Host, _port);
+    } else {
+        _socket.setSslConfiguration(ConfigManager::instance().tlsConfiguration());
+        _socket.connectToHostEncrypted(si.Host, _port);
+    }
 }
 
 void TcpMgr::slot_send_data(ReqId reqId, QString data) {
     const auto id = static_cast<quint16>(reqId);
     QByteArray dataBytes = data.toUtf8();
+    if (dataBytes.isEmpty() || dataBytes.size() > 2048 ||
+        (!ConfigManager::instance().development() && !_socket.isEncrypted())) return;
     quint16 len = static_cast<quint16>(dataBytes.size());
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
@@ -322,6 +390,7 @@ void TcpMgr::resetBusinessPending() {
 
 void TcpMgr::handleTransportLoss()
 {
+    resetSync();
     const bool wasReady = _chatReady;
     _chatReady = false;
     if (wasReady) emit chatReadyChanged();
@@ -334,11 +403,12 @@ void TcpMgr::handleTransportLoss()
         emit friendSyncBusyChanged();
     }
     _pendingTexts.clear();
+    _pendingAttempts.clear();
     _chatStore->disconnectPending();
     resetBusinessPending(); // 上一课已有定义，现在实际接入
     _buffer.clear();
     _b_recv_pending = false;
-    if (wasReady) emit chatError("连接已断开，未确认消息状态未知");
+    if (wasReady && !_intentionalDisconnect) emit chatError("连接已断开，请重新登录。聊天记录已保存在本机");
 }
 
 bool TcpMgr::sendSmallJson(ReqId id, const QJsonObject &object)
@@ -362,7 +432,7 @@ bool TcpMgr::sendSmallJson(ReqId id, const QJsonObject &object)
 
 void TcpMgr::refreshFriends() {
     if (!_chatReady) {
-        emit chatError("请先完成聊天服务器登录");
+        emit chatError("连接尚未就绪，请稍后重试");
         return;
     }
     if (_friendSyncBusy) {
@@ -383,7 +453,7 @@ void TcpMgr::requestFriendPage() {
         {"request_id", _friendRequestId}, {"after_uid", _friendCursor}
     };
     if (!sendSmallJson(ID_FRIEND_LIST_REQ, request)) {
-        failFriendSync("联系人请求提交失败；旧列表未变");
+        failFriendSync("暂时无法加载联系人，请稍后刷新");
         return;
     }
     _friendTimer.start();
@@ -397,7 +467,8 @@ void TcpMgr::failFriendSync(const QString &reason) {
     _friendSyncAgain = false;
     _friendSyncBusy = false;
     emit friendSyncBusyChanged();
-    emit chatError(reason);
+    qWarning() << "Contact synchronization:" << reason;
+    emit chatError("暂时无法加载联系人，请稍后刷新");
 }
 
 void TcpMgr::onFriendPage(const QByteArray &data) {
@@ -457,64 +528,73 @@ void TcpMgr::onFriendPage(const QByteArray &data) {
 
 QString TcpMgr::sendTextMessage(int toUid, const QString &text) {
     const QString content = text.trimmed();
-    if (!_chatReady || !_chatStore->hasFriend(toUid) ||
-        toUid == UserMgr::GetInstance()->GetUid()) {
-        emit chatError("未登录或未选择有效好友");
-        return {};
+    if (content.isEmpty()) return {};
+    if (!_chatReady) { emit chatError(tr("连接尚未就绪，请重新登录后发送")); return {}; }
+    if (!_chatStore->hasFriend(toUid) || toUid == _chatStore->selfUid()) {
+        emit chatError(tr("请先选择一个有效联系人")); return {};
     }
-    if (content.isEmpty() || content.toUtf8().size() > 512) {
-        emit chatError("正文需为 1～512 个 UTF-8 字节");
-        return {};
+    if (content.toUtf8().size() > 512 ||
+        QJsonDocument(QJsonObject{{"content",content}}).toJson(QJsonDocument::Compact).size() > 850) {
+        emit chatError(tr("消息太长，请分成几条发送")); return {};
     }
-    if (_pendingTexts.size() >= 32) {
-        emit chatError("待确认消息过多，请稍后再发");
-        return {};
-    }
+    if (_pendingTexts.size() >= 32) { emit chatError(tr("消息正在发送，请稍候")); return {}; }
     const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    QJsonArray array;
-    array.append(QJsonObject{{"msgid", id}, {"content", content}});
-    const QJsonObject request{{"touid", toUid}, {"text_array", array}};
-    if (QJsonDocument(request).toJson(QJsonDocument::Compact).size() > 1800) {
-        emit chatError("转义后的消息包过大");
-        return {};
-    }
-
-    _chatStore->appendOutgoing(toUid, id, content);
-    _pendingTexts.insert(id, toUid);
-    if (!sendSmallJson(ID_TEXT_CHAT_MSG_REQ, request)) {
-        _pendingTexts.remove(id);
-        _chatStore->mark(toUid, id, "unknown");
-        emit chatError("发送未确认，请勿自动重发");
-        return id;
-    }
-    QTimer::singleShot(10000, this, [this, id] {
-        auto it = _pendingTexts.find(id);
-        if (it == _pendingTexts.end()) return;
-        const int peer = it.value();
-        _pendingTexts.erase(it);
-        _chatStore->mark(peer, id, "unknown");
-        emit chatError("消息回包超时，结果未知");
-    });
+    if (!_chatStore->appendOutgoing(toUid, id, content)) return {};
+    submitText(toUid, id, content);
     return id;
+}
+
+void TcpMgr::submitText(int peer, const QString &id, const QString &text) {
+    const auto generation = _sessionGeneration;
+    const auto attempt = ++_attemptCounter;
+    _pendingTexts.insert(id, peer); _pendingAttempts.insert(id, attempt);
+    QJsonArray array; array.append(QJsonObject{{"msgid",id},{"content",text}});
+    if (!sendSmallJson(ID_TEXT_CHAT_MSG_REQ, {{"touid",peer},{"text_array",array}})) {
+        _pendingTexts.remove(id); _pendingAttempts.remove(id);
+        _chatStore->mark(peer, id, "unknown");
+        emit chatError(tr("暂时无法确认发送结果，消息已保存在本机"));
+        return;
+    }
+    QTimer::singleShot(10000, this, [this, generation, attempt, id, peer] {
+        if (generation != _sessionGeneration || _pendingAttempts.value(id) != attempt) return;
+        _pendingTexts.remove(id); _pendingAttempts.remove(id);
+        _chatStore->mark(peer, id, "unknown");
+        _nextStatePoll = 0;
+    });
+}
+
+void TcpMgr::retryTextMessage(int peer, const QString &id) {
+    if (!_chatReady) { emit chatError(tr("连接已断开，请重新登录后重试")); return; }
+    if (_pendingTexts.contains(id) || _pendingTexts.size() >= 32) return;
+    const auto m = _chatStore->repository().find(_chatStore->selfUid(), id);
+    if (m.isEmpty() || m.value("peerUid").toInt() != peer) return;
+    const auto state = m.value("status").toString();
+    if (state != "failed" && state != "unknown") return;
+    // Reuse both the original UUID and content; the server enforces idempotency.
+    if (_chatStore->mark(peer, id, "pending")) submitText(peer, id, m.value("messageText").toString());
 }
 
 void TcpMgr::onTextReply(const QByteArray &data) {
     if (!_chatReady) return;
     const auto doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) return; // 关联不到请求，保留 pending 等超时
-    const auto root = doc.object();
-    const QString id = root["msgid"].toString();
-    auto it = _pendingTexts.find(id);
-    if (it == _pendingTexts.end()) return;
-    const int peer = it.value();
-    if (root["fromuid"].toInt() != UserMgr::GetInstance()->GetUid() ||
-        root["touid"].toInt() != peer) return;
-    _pendingTexts.erase(it);
+    if (!doc.isObject()) return;
+    const auto root = doc.object(); const auto id = root["msgid"].toString();
+    const auto local = _chatStore->repository().find(_chatStore->selfUid(), id);
+    if (local.isEmpty() || root["fromuid"].toInt() != _chatStore->selfUid() ||
+        root["touid"].toInt() != local.value("peerUid").toInt()) return;
+    // A late acknowledgement remains useful even after the request timer expired.
     const int error = root["error"].toInt(-1);
-    const QString state = error == 0 ? "forward_attempted"
-                          : (error == 1101 || error == 1102 || error == 1103) ? "failed" : "unknown";
-    _chatStore->mark(peer, id, state);
-    if (error != 0) emit chatError("消息处理结果：" + QString::number(error));
+    if (error == 0) {
+        if (!_chatStore->mergeServer(root)) return;
+    } else {
+        const bool rejected = error == 1101 || error == 1103;
+        _chatStore->mark(local.value("peerUid").toInt(), id, rejected ? "failed" : "unknown");
+        qWarning() << "Message response" << error << id;
+        if (error == 1101) emit chatError(tr("暂时无法发送，请确认好友关系"));
+        else if (error == 1103) emit chatError(tr("消息内容不符合要求，请缩短或调整后发送"));
+        else emit chatError(tr("正在确认发送结果，请稍后查看消息状态"));
+    }
+    _pendingTexts.remove(id); _pendingAttempts.remove(id);
 }
 
 void TcpMgr::onTextNotify(const QByteArray &data) {
@@ -522,18 +602,220 @@ void TcpMgr::onTextNotify(const QByteArray &data) {
     const auto doc = QJsonDocument::fromJson(data);
     if (!doc.isObject()) return;
     const auto root = doc.object();
-    if (root["error"].toInt(-1) != 0 ||
-        root["touid"].toInt() != UserMgr::GetInstance()->GetUid() ||
-        !root["text_array"].isArray()) return;
-    const int sender = root["fromuid"].toInt();
-    const auto array = root["text_array"].toArray();
-    if (sender <= 0 || sender == UserMgr::GetInstance()->GetUid() || array.size() != 1)
-        return;
-    const auto item = array.first().toObject();
-    const QString id = item["msgid"].toString();
-    const QString content = item["content"].toString();
-    if (id.size() != 36 || QUuid(id).isNull() ||
-        content.isEmpty() || content.toUtf8().size() > 512) return;
-    _chatStore->appendIncoming(sender, id, content);
-    if (!_chatStore->hasFriend(sender)) refreshFriends();
+    if (root["error"].toInt(-1) != 0 || !root["message"].isObject()) return;
+    const auto message = root["message"].toObject();
+    if (message["touid"].toInt() != _chatStore->selfUid()) return;
+    const int source = message["fromuid"].toInt();
+    const auto clientId = message["msgid"].toString();
+    const bool known = !_chatStore->repository().find(source, clientId).isEmpty() ||
+                       _chatStore->repository().isDeleted(source, clientId);
+    if (_chatStore->mergeServer(message)) {
+        if (!known && message["message_status"].toInt(-1) == 0 && _chatStore->ready()) emit newPrivateMessage();
+        const int sender = message["fromuid"].toInt();
+        queueHistory(sender); // Never advance a history cursor from a live notification.
+        if (!_chatStore->hasFriend(sender)) refreshFriends();
+        pumpSync();
+    }
+}
+
+void TcpMgr::logout() {
+    ++_sessionGeneration; _intentionalDisconnect = true; _conversationVisible = false;
+    if (_chatReady && sendSmallJson(ID_LOGOUT_REQ, {})) _socket.disconnectFromHost();
+    else _socket.abort();
+    handleTransportLoss(); _chatStore->endAccount();
+    _friendApplySnapshot.clear(); emit friendApplySnapshotChanged();
+    auto user = UserMgr::GetInstance(); user->SetUid(0); user->SetName({}); user->SetToken({});
+    _connectingUid = 0; emit loggedOut();
+    _intentionalDisconnect = false;
+}
+void TcpMgr::setConversationVisible(bool visible) { _conversationVisible = visible; }
+void TcpMgr::markMessageRead(const QString &id) {
+    if (AppLock::instance().locked()) return;
+    if (!_chatReady || !_conversationVisible || QGuiApplication::applicationState() != Qt::ApplicationActive) return;
+    if (_chatStore->markRead(id)) pumpSync();
+}
+void TcpMgr::resetSync() {
+    if (!_deleteRequest.isEmpty()) {
+        _deleteRequest.clear(); emit deletionPendingChanged();
+        emit deletionFinished(false, tr("连接已中断，删除结果尚未确认；重新登录后将同步最终状态"));
+    }
+    _nextDeletionPoll = 0;
+    _privacyRequest.clear(); _privacy.clear(); emit privacyChanged();
+    _syncTimer.stop(); _syncRequest.clear(); _historyQueue.clear(); _queuedPeers.clear();
+    _listing = false; _conversationCursor = "0"; _nextSweep = 0; _statusOffset = 0;
+    _nextStatePoll = 0; _retrySyncAt = 0; _receiptRetryAt = 0; _queriedIds.clear();
+}
+
+void TcpMgr::privacyCommand(const QVariantMap &command) {
+    if (!_chatReady || !_privacyRequest.isEmpty()) return;
+    _privacyRequest = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    auto request = QJsonObject::fromVariantMap(command);
+    request["request_id"] = _privacyRequest;
+    const auto id = _privacyRequest;
+    const auto generation = _sessionGeneration;
+    emit privacyChanged();
+    if (!sendSmallJson(ID_PRIVACY_REQ, request)) {
+        _privacyRequest.clear(); emit privacyChanged(); return;
+    }
+    QTimer::singleShot(8000, this, [this, id, generation] {
+        if (generation != _sessionGeneration || _privacyRequest != id) return;
+        _privacyRequest.clear(); emit privacyChanged();
+        emit chatError(tr("隐私设置请求超时，请重新打开页面确认结果"));
+    });
+}
+void TcpMgr::queueHistory(int peer) {
+    if (peer <= 0 || peer == _chatStore->selfUid() || _queuedPeers.contains(peer)) return;
+    _queuedPeers.insert(peer); _historyQueue.enqueue(peer);
+}
+void TcpMgr::deleteMessage(const QString &messageId, bool everyone) {
+    if (AppLock::instance().locked() || !_deleteRequest.isEmpty()) return;
+    if (!_chatReady || !_chatStore->ready()) { emit deletionFinished(false, tr("请连接服务器后再删除")); return; }
+    bool valid = false; const auto numeric = messageId.toULongLong(&valid);
+    const auto m = _chatStore->repository().findServer(messageId);
+    if (!valid || !numeric || m.isEmpty() || (everyone && m.value("senderUid").toInt() != _chatStore->selfUid())) {
+        emit deletionFinished(false, tr("消息已不可用，或没有对双方删除的权限")); return;
+    }
+    _deleteServerId = messageId; _deleteClientId = m.value("msgid").toString();
+    _deleteSender = m.value("senderUid").toInt(); _deleteEveryone = everyone;
+    _deleteRequest = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const auto request = _deleteRequest; const auto generation = _sessionGeneration;
+    emit deletionPendingChanged();
+    if (!sendSmallJson(ID_MESSAGE_DELETE_REQ, {{"request_id",request},{"message_id",messageId},{"for_everyone",everyone}})) {
+        _deleteRequest.clear(); emit deletionPendingChanged();
+        emit deletionFinished(false, tr("删除请求未能发出，请检查连接后重试")); return;
+    }
+    QTimer::singleShot(8000, this, [this, request, generation] {
+        if (generation != _sessionGeneration || _deleteRequest != request) return;
+        _deleteRequest.clear(); emit deletionPendingChanged(); _nextDeletionPoll = 0;
+        emit deletionFinished(false, tr("删除结果尚未确认，正在同步；可稍后重试，请勿视为未删除"));
+    });
+}
+
+void TcpMgr::pumpSync() {
+    if (!_chatReady || !_chatStore->ready()) return;
+    const auto now = QDateTime::currentMSecsSinceEpoch();
+    if (!_syncRequest.isEmpty()) {
+        if (now < _syncDeadline) return;
+        if (_syncKind == ID_CHAT_HISTORY_REQ) queueHistory(_syncPeer);
+        if (_syncKind == ID_MESSAGE_RECEIPT_REQ) _receiptRetryAt = now + 30000;
+        _syncRequest.clear(); _retrySyncAt = now + 2000;
+    }
+    if (now < _retrySyncAt) return;
+    QJsonObject request;
+    const auto receipts = _chatStore->repository().receipts();
+    if (now >= _nextDeletionPoll) {
+        _syncKind = ID_DELETION_EVENTS_REQ;
+        _syncCursor = _chatStore->repository().cursor(0);
+        request = {{"after_event",_syncCursor}};
+        _nextDeletionPoll = now + 10000;
+    } else if (!receipts.isEmpty() && now >= _receiptRetryAt) {
+        const auto r = receipts.first().toMap();
+        _receiptId = r.value("id").toString();
+        _syncKind = ID_MESSAGE_RECEIPT_REQ;
+        request = {{"message_id",r.value("id").toString()},
+                   {"receipt",r.value("status").toInt() == 1 ? "read" : "delivered"}};
+    } else if (!_historyQueue.isEmpty()) {
+        _syncKind = ID_CHAT_HISTORY_REQ;
+        _syncPeer = _historyQueue.dequeue(); _queuedPeers.remove(_syncPeer);
+        _syncCursor = _chatStore->repository().cursor(_syncPeer);
+        request = {{"peer_uid",_syncPeer},{"after_seq",_syncCursor}};
+    } else if (_listing || now >= _nextSweep) {
+        if (!_listing) { _listing = true; _conversationCursor = "0"; }
+        _syncKind = ID_CONVERSATION_LIST_REQ;
+        request = {{"after_thread",_conversationCursor}};
+    } else if (now >= _nextStatePoll && QGuiApplication::applicationState() == Qt::ApplicationActive) {
+        _nextStatePoll = now + 2000;
+        _queriedIds = _chatStore->repository().statusIds(_statusOffset);
+        if (_queriedIds.isEmpty()) { _statusOffset = 0; _queriedIds = _chatStore->repository().statusIds(0); }
+        if (_queriedIds.isEmpty()) return;
+        _syncKind = ID_MESSAGE_STATUS_REQ;
+        QJsonArray ids; for (const auto &id : _queriedIds) ids.append(id);
+        request = {{"msgids",ids}};
+    } else return;
+    _syncRequest = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    request["request_id"] = _syncRequest; _syncDeadline = now + 8000;
+    if (!sendSmallJson(_syncKind, request)) {
+        if (_syncKind == ID_CHAT_HISTORY_REQ) queueHistory(_syncPeer);
+        if (_syncKind == ID_MESSAGE_RECEIPT_REQ) _receiptRetryAt = now + 30000;
+        _syncRequest.clear(); _retrySyncAt = now + 2000;
+    }
+}
+
+void TcpMgr::onSyncReply(const QByteArray &data) {
+    if (!_chatReady || _syncRequest.isEmpty() || data.size() > 1800) return;
+    const auto doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) return;
+    const auto r = doc.object();
+    if (r["request_id"].toString() != _syncRequest) return;
+    const auto kind = _syncKind;
+    _syncRequest.clear();
+    auto failed = [this, kind] {
+        if (kind == ID_CHAT_HISTORY_REQ) queueHistory(_syncPeer);
+        // Keep the durable receipt for retry without starving history/status sync.
+        if (kind == ID_MESSAGE_RECEIPT_REQ)
+            _receiptRetryAt = QDateTime::currentMSecsSinceEpoch() + 30000;
+        _retrySyncAt = QDateTime::currentMSecsSinceEpoch() + 5000;
+        emit chatError(tr("聊天记录暂时无法同步，稍后将自动重试"));
+    };
+    if (r["error"].toInt(-1) != 0) { failed(); return; }
+    auto &repo = _chatStore->repository();
+    if (kind == ID_DELETION_EVENTS_REQ) {
+        if (!r["items"].isArray() || !r["has_more"].isBool() || r["after_event"].toString() != _syncCursor ||
+            (r["has_more"].toBool() && r["next_event"].toString().toULongLong() <= _syncCursor.toULongLong()) ||
+            !repo.applyDeletions(r["items"].toArray().toVariantList(), r["next_event"].toString())) { failed(); return; }
+        if (r["has_more"].toBool()) _nextDeletionPoll = 0;
+        _chatStore->refresh();
+    } else if (kind == ID_CHAT_HISTORY_REQ) {
+        if (r["peer_uid"].toInt() != _syncPeer || r["after_seq"].toString() != _syncCursor ||
+            !r["messages"].isArray() || !r["has_more"].isBool()) { failed(); return; }
+        auto last = _syncCursor.toULongLong();
+        for (const auto &v : r["messages"].toArray()) {
+            const auto m = v.toObject(); bool ok = false;
+            const auto seq = m["seq"].toString().toULongLong(&ok);
+            const int peer = m["fromuid"].toInt() == _chatStore->selfUid() ? m["touid"].toInt() : m["fromuid"].toInt();
+            if (!ok || seq <= last || peer != _syncPeer || !_chatStore->mergeServer(m)) { failed(); return; }
+            last = seq;
+        }
+        bool cursorOk = false;
+        const auto next = r["next_seq"].toString().toULongLong(&cursorOk);
+        if (!cursorOk || next != last || (r["has_more"].toBool() && next <= _syncCursor.toULongLong()) ||
+            !repo.setCursor(_syncPeer, r["next_seq"].toString())) { failed(); return; }
+        if (r["has_more"].toBool()) queueHistory(_syncPeer);
+    } else if (kind == ID_CONVERSATION_LIST_REQ) {
+        if (!r["items"].isArray() || !r["has_more"].isBool() || r["after_thread"].toString() != _conversationCursor) { failed(); return; }
+        auto last = _conversationCursor.toULongLong();
+        for (const auto &v : r["items"].toArray()) {
+            auto item = v.toObject(); bool ok = false;
+            const auto thread = item["thread_id"].toString().toULongLong(&ok);
+            const int peer = item["peer_uid"].toInt();
+            if (!ok || thread <= last || peer <= 0 || peer == _chatStore->selfUid()) { failed(); return; }
+            last = thread;
+            bool seqOk = false;
+            const auto lastSeq = item["last_seq"].toString().toULongLong(&seqOk);
+            if (!seqOk) { failed(); return; }
+            if (lastSeq > repo.cursor(peer).toULongLong()) queueHistory(peer);
+        }
+        bool ok = false; auto next = r["next_thread"].toString().toULongLong(&ok);
+        if (!ok || next != last || (r["has_more"].toBool() && next <= _conversationCursor.toULongLong())) { failed(); return; }
+        _conversationCursor = r["next_thread"].toString();
+        _listing = r["has_more"].toBool();
+        if (!_listing) _nextSweep = QDateTime::currentMSecsSinceEpoch() + 10000;
+    } else if (kind == ID_MESSAGE_RECEIPT_REQ) {
+        const auto state = r["state"].toString();
+        if (r["message_id"].toString() != _receiptId || (state != "delivered" && state != "read") ||
+            !repo.acknowledgeReceipt(r["message_id"].toString(), state == "read" ? 1 : 0, r["read_suppressed"].toBool())) { failed(); return; }
+        _chatStore->refresh();
+    } else if (kind == ID_MESSAGE_STATUS_REQ) {
+        if (!r["items"].isArray()) { failed(); return; }
+        for (const auto &v : r["items"].toArray()) {
+            const auto m = v.toObject();
+            if (!_queriedIds.contains(m["msgid"].toString())) { failed(); return; }
+            if (m["state"].toString() == "not_found") continue;
+            if (!_chatStore->mergeServer(m)) { failed(); return; }
+            _pendingTexts.remove(m["msgid"].toString()); _pendingAttempts.remove(m["msgid"].toString());
+        }
+        _statusOffset += _queriedIds.size();
+    }
+    const auto generation = _sessionGeneration;
+    QTimer::singleShot(25, this, [this, generation] { if (generation == _sessionGeneration) pumpSync(); });
 }

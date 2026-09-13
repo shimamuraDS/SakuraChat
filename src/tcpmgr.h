@@ -1,5 +1,6 @@
 #pragma once
 #include <QTcpSocket>
+#include <QSslSocket>
 #include <QJsonObject>
 #include <QMap>
 #include <QVariant>
@@ -11,6 +12,8 @@
 #include "chatstore.h"
 #include <QTimer>
 #include <QHash>
+#include <QQueue>
+#include <QSet>
 
 class TcpMgr : public QObject, public Singleton<TcpMgr>, public std::enable_shared_from_this<TcpMgr>
 {
@@ -24,6 +27,9 @@ class TcpMgr : public QObject, public Singleton<TcpMgr>, public std::enable_shar
     Q_PROPERTY(ChatStore* chatStore READ chatStore CONSTANT)
     Q_PROPERTY(bool chatReady READ chatReady NOTIFY chatReadyChanged)
     Q_PROPERTY(bool friendSyncBusy READ friendSyncBusy NOTIFY friendSyncBusyChanged)
+    Q_PROPERTY(QVariantMap privacy READ privacy NOTIFY privacyChanged)
+    Q_PROPERTY(bool privacyPending READ privacyPending NOTIFY privacyChanged)
+    Q_PROPERTY(bool deletionPending READ deletionPending NOTIFY deletionPendingChanged)
 public:
     ~TcpMgr();
 
@@ -54,13 +60,25 @@ public:
     bool friendSyncBusy() const { return _friendSyncBusy; }
     Q_INVOKABLE void refreshFriends();
     Q_INVOKABLE QString sendTextMessage(int toUid, const QString &text);
+    Q_INVOKABLE void retryTextMessage(int peerUid, const QString &msgid);
+    Q_INVOKABLE void markMessageRead(const QString &messageId);
+    Q_INVOKABLE void logout();
+    Q_INVOKABLE void setConversationVisible(bool visible);
+    QVariantMap privacy() const { return _privacy; }
+    bool privacyPending() const { return !_privacyRequest.isEmpty(); }
+    Q_INVOKABLE void privacyCommand(const QVariantMap &command);
+    bool deletionPending() const { return !_deleteRequest.isEmpty(); }
+    Q_INVOKABLE void deleteMessage(const QString &messageId, bool forEveryone);
 
 private:
+    QString _deleteRequest, _deleteServerId, _deleteClientId;
+    int _deleteSender = 0;
+    bool _deleteEveryone = false;
     friend class Singleton<TcpMgr>;
     TcpMgr();
     void initHandlers();
     void handleMsg(ReqId id, int len, const QByteArray &data);
-    QTcpSocket _socket;
+    QSslSocket _socket;
     QString _host;
     uint16_t _port;
     QByteArray _buffer;
@@ -76,6 +94,27 @@ private:
     void onFriendPage(const QByteArray &data);
     void onTextReply(const QByteArray &data);
     void onTextNotify(const QByteArray &data);
+    void submitText(int peer, const QString &id, const QString &text);
+    void pumpSync();
+    void onSyncReply(const QByteArray &data);
+    void queueHistory(int peer);
+    void resetSync();
+    QTimer _syncTimer;
+    quint64 _sessionGeneration = 0, _attemptCounter = 0;
+    QHash<QString, quint64> _pendingAttempts;
+    QString _syncRequest, _syncCursor, _conversationCursor = "0";
+    ReqId _syncKind = ID_CHAT_HISTORY_REQ;
+    int _syncPeer = 0, _statusOffset = 0, _connectingUid = 0;
+    qint64 _syncDeadline = 0, _nextSweep = 0, _nextStatePoll = 0, _retrySyncAt = 0;
+    qint64 _receiptRetryAt = 0;
+    qint64 _nextDeletionPoll = 0;
+    QQueue<int> _historyQueue;
+    QSet<int> _queuedPeers;
+    QStringList _queriedIds;
+    QString _receiptId;
+    QVariantMap _privacy;
+    QString _privacyRequest;
+    bool _listing = false, _intentionalDisconnect = false, _conversationVisible = false;
     bool _searchPending = false;
     bool _applyPending = false;
     bool _reviewPending = false;
@@ -94,6 +133,9 @@ public slots:
     void slot_tcp_connect(ServerInfo);
     void slot_send_data(ReqId, QString data);
 signals:
+    void newPrivateMessage();
+    void deletionPendingChanged();
+    void deletionFinished(bool success, QString message);
     void sig_con_success(bool bsuccess);
     void sig_send_data(ReqId reqId, QString data);
     void sig_switch_chatlg();
@@ -111,4 +153,6 @@ signals:
     void chatReadyChanged();
     void friendSyncBusyChanged();
     void chatError(QString message);
+    void loggedOut();
+    void privacyChanged();
 };

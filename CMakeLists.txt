@@ -9,7 +9,7 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Network Sql Concurrent Widgets)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -47,6 +47,12 @@ qt_add_qml_module(appSakuraChat
         qml/ApplyFriendPage.qml
         qml/ReviewFriendApplication.qml
     SOURCES
+        src/applock.h
+        src/applock.cpp
+        src/localprotection.h
+        src/localprotection.cpp
+        src/privatenotifications.h
+        src/privatenotifications.cpp
         src/global.h
         src/singleton.h
         src/httpmgr.h
@@ -76,6 +82,9 @@ qt_add_qml_module(appSakuraChat
         src/applyfriendlist.h
         src/applyfriendlist.cpp
         src/chatstore.h
+        src/chatstore.cpp
+        src/chatrepository.h
+        src/chatrepository.cpp
     RESOURCES
         sakurachat.qrc
         README.md
@@ -85,6 +94,7 @@ qt_add_qml_module(appSakuraChat
 )
 
 if(WIN32)
+    target_link_libraries(appSakuraChat PRIVATE crypt32)
     set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
     target_sources(appSakuraChat PRIVATE ${APP_ICON_RESOURCE_WINDOWS})
 endif()
@@ -109,6 +119,9 @@ target_link_libraries(appSakuraChat
         Qt6::Quick
         Qt6::QuickControls2
         Qt6::Network
+        Qt6::Sql
+        Qt6::Concurrent
+        Qt6::Widgets
         Qt6::Qml
 )
 include(GNUInstallDirs)

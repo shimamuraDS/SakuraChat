@@ -40,12 +40,11 @@ Rectangle {
 
         if (!validateEmailOnly()) return false;
 
-        if (verifyCodeField.text.trim() === "") return showTip("验证码不能为空", true) || false;
+        if (!/^[0-9]{6}$/.test(verifyCodeField.text.trim())) return showTip("请输入六位数字验证码", true) || false;
 
         const pass = regPasswordField.text;
-        const passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/;
-        if (pass.length < 6 || pass.length > 15) return showTip("密码长度应为6~15", true) || false;
-        if (!passRegex.test(pass)) return showTip("密码包含非法字符", true) || false;
+        // UTF-8 字节长度由 C++ 控制器与服务器统一校验。
+        if (pass.length === 0) return showTip("密码不能为空", true) || false;
 
         if (confirmPasswordField.text !== pass) return showTip("两次密码输入不一致", true) || false;
 

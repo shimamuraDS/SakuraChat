@@ -32,6 +32,170 @@ Rectangle {
 
     property string activeTab: "chat"
     property string chatErrorMessage: ""
+    signal logoutRequested()
+    signal lockSettingsRequested()
+
+    Dialog {
+        id: retentionDialog
+        title: qsTr("今后发出消息的自动删除")
+        anchors.centerIn: parent
+        width: 440
+        modal: true
+        property bool submitted: false
+        onOpened: {
+            submitted = false
+            retentionChoice.currentIndex = Math.max(0, [0,86400,604800,2592000].indexOf(tcpMgr.privacy.retention_seconds))
+            retentionConsent.checked = false
+            chatDialog.chatErrorMessage = ""
+        }
+        contentItem: ColumnLayout {
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: qsTr("只影响设置成功后发出的新消息。到期会为双方删除；旧消息不补设期限，关闭也不取消已排定的期限。截图、导出和备份无法远程擦除。") }
+            ComboBox { id: retentionChoice; Layout.fillWidth: true; enabled: !tcpMgr.privacyPending
+                model: [qsTr("关闭"), qsTr("24 小时"), qsTr("7 天"), qsTr("30 天")] }
+            CheckBox { id: retentionConsent; text: qsTr("我已了解上述删除范围和不可撤销性"); enabled: !tcpMgr.privacyPending }
+            Button { text: qsTr("确认保存"); enabled: retentionConsent.checked && !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
+                onClicked: {
+                    retentionDialog.submitted = true
+                    chatDialog.chatErrorMessage = ""
+                    tcpMgr.privacyCommand({action: "set_retention", seconds: [0,86400,604800,2592000][retentionChoice.currentIndex]})
+                }
+            }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                text: tcpMgr.privacyPending ? qsTr("正在保存…") : chatDialog.chatErrorMessage }
+            Button { text: qsTr("关闭"); onClicked: retentionDialog.close() }
+        }
+        Connections {
+            target: tcpMgr
+            function onPrivacyChanged() {
+                if (retentionDialog.visible && retentionDialog.submitted && !tcpMgr.privacyPending) {
+                    retentionDialog.submitted = false
+                    if (chatDialog.chatErrorMessage.length === 0 && tcpMgr.privacy.retention_seconds === [0,86400,604800,2592000][retentionChoice.currentIndex])
+                        chatDialog.chatErrorMessage = qsTr("服务器已确认保存自动删除设置")
+                }
+            }
+            function onLoggedOut() { retentionDialog.close() }
+        }
+        Connections { target: appLock; function onChanged() { if (appLock.locked) retentionDialog.close() } }
+    }
+
+    Dialog {
+        id: deleteMessageDialog
+        property string messageId: ""
+        property bool sentByMe: false
+        property string resultText: ""
+        title: qsTr("删除这条消息？")
+        anchors.centerIn: parent
+        width: 430
+        modal: true
+        closePolicy: tcpMgr.deletionPending ? Popup.NoAutoClose : Popup.CloseOnEscape
+        contentItem: ColumnLayout {
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: qsTr("默认仅从你的账号删除，对方仍可保留消息。删除不可撤销，不能清除对方已有截图、导出或备份。") }
+            CheckBox { id: deleteForEveryone; visible: deleteMessageDialog.sentByMe
+                text: qsTr("同时为对方删除（仅发送者可选）"); enabled: !tcpMgr.deletionPending }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                text: tcpMgr.deletionPending ? qsTr("正在等待服务器确认…") : deleteMessageDialog.resultText }
+            RowLayout {
+                Button { text: qsTr("取消"); enabled: !tcpMgr.deletionPending; onClicked: deleteMessageDialog.close() }
+                Button { text: qsTr("确认删除"); enabled: !tcpMgr.deletionPending
+                    onClicked: {
+                        deleteMessageDialog.resultText = ""
+                        tcpMgr.deleteMessage(deleteMessageDialog.messageId, deleteMessageDialog.sentByMe && deleteForEveryone.checked)
+                    }
+                }
+            }
+        }
+        Connections {
+            target: tcpMgr
+            function onDeletionFinished(success, message) {
+                if (!deleteMessageDialog.visible) return
+                if (success) deleteMessageDialog.close()
+                else deleteMessageDialog.resultText = message
+            }
+            function onLoggedOut() { deleteMessageDialog.close() }
+        }
+        Connections {
+            target: appLock
+            function onChanged() { if (appLock.locked) deleteMessageDialog.close() }
+        }
+    }
+
+    Dialog {
+        id: privacyDialog
+        title: qsTr("隐私与安全 · 云端聊天")
+        anchors.centerIn: parent
+        width: 440
+        modal: true
+        standardButtons: Dialog.Close
+        onOpened: {
+            chatDialog.chatErrorMessage = ""
+            tcpMgr.privacyCommand({action: "get"})
+        }
+        contentItem: ScrollView {
+            id: privacyScroll
+            implicitHeight: Math.min(520, privacyColumn.implicitHeight)
+            contentWidth: availableWidth
+            clip: true
+            ColumnLayout {
+            id: privacyColumn
+            width: privacyScroll.availableWidth
+            spacing: 10
+            Label { text: qsTr("设置由服务器执行；本模式不是端到端加密。") }
+            RowLayout {
+                Button { text: qsTr("应用锁设置")
+                    onClicked: { privacyDialog.close(); chatDialog.lockSettingsRequested() } }
+                Button { text: qsTr("自动删除设置"); enabled: !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
+                    onClicked: { privacyDialog.close(); retentionDialog.open() } }
+            }
+            Label { text: qsTr("谁可以搜索到我") }
+            ComboBox { id: searchPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
+            Label { text: qsTr("谁可以向我发送好友申请") }
+            ComboBox { id: requestPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "不接受"] }
+            Label { text: qsTr("谁可以查看头像、昵称与简介") }
+            ComboBox { id: profilePrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
+            CheckBox { id: readPrivacy; text: qsTr("发送已读回执（关闭不撤回已发送的回执）") }
+            CheckBox {
+                text: qsTr("桌面通用提醒（不显示联系人或正文）")
+                checked: privateNotifications.enabled
+                onClicked: privateNotifications.enabled = checked
+            }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                text: privateNotifications.available ? privateNotifications.message : qsTr("当前系统暂不支持桌面提醒") }
+            Button {
+                text: qsTr("保存隐私设置")
+                enabled: !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
+                onClicked: tcpMgr.privacyCommand({action: "set", search_policy: searchPrivacy.currentIndex,
+                    request_policy: requestPrivacy.currentIndex, profile_policy: profilePrivacy.currentIndex,
+                    read_receipts: readPrivacy.checked})
+            }
+            RowLayout {
+                TextField { id: blockUid; placeholderText: qsTr("用户 UID"); validator: IntValidator { bottom: 1 } }
+                Button { text: qsTr("拉黑"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
+                    onClicked: tcpMgr.privacyCommand({action: "block", uid: Number(blockUid.text)}) }
+                Button { text: qsTr("解除"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
+                    onClicked: tcpMgr.privacyCommand({action: "unblock", uid: Number(blockUid.text)}) }
+            }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                text: qsTr("本页黑名单 UID：") + (tcpMgr.privacy.blocked || []).join(", ") }
+            Button { text: qsTr("下一页黑名单"); visible: tcpMgr.privacy.has_more === true; enabled: !tcpMgr.privacyPending
+                onClicked: tcpMgr.privacyCommand({action: "get", after_uid: tcpMgr.privacy.next_uid}) }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
+                text: tcpMgr.privacyPending ? qsTr("正在与服务器同步…") : chatDialog.chatErrorMessage }
+            }
+        }
+        Connections {
+            target: tcpMgr
+            function onPrivacyChanged() {
+                if (tcpMgr.privacyPending || tcpMgr.privacy.error !== 0) return
+                searchPrivacy.currentIndex = tcpMgr.privacy.search_policy
+                requestPrivacy.currentIndex = tcpMgr.privacy.request_policy
+                profilePrivacy.currentIndex = tcpMgr.privacy.profile_policy
+                readPrivacy.checked = tcpMgr.privacy.read_receipts
+            }
+            function onLoggedOut() { privacyDialog.close() }
+        }
+    }
 
     function openPeer(uid) {
         if (tcpMgr.chatStore.openConversation(uid)) {
@@ -75,23 +239,41 @@ Rectangle {
 
         function onSig_search_failed(error, message) {
             searchResultModel.clear()
-            chatDialog.searchError = message + "（" + error + "）"
+            console.warn("Search failed", error)
+            chatDialog.searchError = qsTr("暂时无法搜索用户，请稍后重试")
         }
 
         function onSig_friend_apply_result(error, result, applyId) {
             if (error !== 0) {
-                console.warn("好友申请请求失败：", error)
+                chatDialog.chatErrorMessage = qsTr("好友申请发送失败，请稍后重试")
             } else if (result === 0) {
-                console.log("好友申请已保存，applyId =", applyId)
+                chatDialog.chatErrorMessage = qsTr("好友申请已发送，等待对方处理")
             } else if (result === 1) {
-                console.log("双方已经是好友")
+                chatDialog.chatErrorMessage = qsTr("你们已经是好友了")
             } else {
-                console.warn("好友申请未成功：", result)
+                chatDialog.chatErrorMessage = qsTr("暂时无法添加该用户，请确认后重试")
             }
         }
 
         function onChatError(message) {
             chatDialog.chatErrorMessage = message
+        }
+        function onChatReadyChanged() {
+            if (tcpMgr.chatReady) chatDialog.chatErrorMessage = ""
+        }
+        function onLoggedOut() {
+            messageInput.clear()
+            searchInput.clear()
+            searchResultModel.clear()
+            chatDialog.searchError = ""
+            chatDialog.chatErrorMessage = ""
+            chatDialog.activeTab = "chat"
+            findSuccessDialog.close()
+            applyFriendPopup.close()
+        }
+        function onSig_friend_apply_resolved(error, result, applyId, agree) {
+            if (error !== 0 || result !== 0)
+                chatDialog.chatErrorMessage = qsTr("暂时无法处理好友申请，请稍后重试")
         }
     }
 
@@ -127,7 +309,17 @@ Rectangle {
                 }
 
                 // ── 修改点 1：侧边栏按钮互斥选中 ──────────────────────
+                SidebarIconBtn {
+                    iconText: "↪"
+                    tooltipText: qsTr("退出登录")
+                    onClicked: chatDialog.logoutRequested()
+                }
                 // 四个独立的 SidebarIconBtn，
+                SidebarIconBtn {
+                    iconText: "⚙"
+                    tooltipText: qsTr("隐私与安全")
+                    onClicked: privacyDialog.open()
+                }
                 // isActive 绑定到顶层 activeTab 属性，点击时赋值 activeTab
                 // 即可自动清除其他按钮的激活态。
                 SidebarIconBtn {
@@ -607,14 +799,23 @@ Rectangle {
             ColumnLayout {
                 spacing: 0
 
-                Label {
+                RowLayout {
                     Layout.fillWidth: true
                     Layout.margins: 8
                     visible: chatDialog.chatErrorMessage.length > 0
-                    text: chatDialog.chatErrorMessage
-                    textFormat: Text.PlainText
-                    color: "#d14343"
-                    wrapMode: Text.Wrap
+                    Label {
+                        Layout.fillWidth: true
+                        text: chatDialog.chatErrorMessage
+                        textFormat: Text.PlainText
+                        color: "#725b37"
+                        wrapMode: Text.Wrap
+                    }
+                    ToolButton {
+                        text: "×"
+                        onClicked: chatDialog.chatErrorMessage = ""
+                        ToolTip.text: qsTr("关闭提示")
+                        ToolTip.visible: hovered
+                    }
                 }
 
                 // 区域 5：顶部栏
@@ -648,8 +849,8 @@ Rectangle {
 
                         Column {
                             Layout.fillWidth: true
-                            Text { text: "Alice"; font.pixelSize: 15; font.bold: true; color: chatDialog.textPrimary }
-                            Text { text: "在线"; font.pixelSize: 12; color: chatDialog.accentBlue }
+                            Text { text: tcpMgr.chatStore.activeName; textFormat: Text.PlainText; font.pixelSize: 15; font.bold: true; color: chatDialog.textPrimary }
+                            Text { text: tcpMgr.chatReady ? qsTr("已连接") : qsTr("连接已断开"); font.pixelSize: 12; color: chatDialog.accentBlue }
                         }
 
                         Row {
@@ -673,6 +874,25 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     messageRows: tcpMgr.chatStore.messages
+                    conversationUid: tcpMgr.chatStore.activeUid
+                    conversationVisible: chatDialog.visible && chatDialog.activeTab === "chat"
+                                         && Qt.application.state === Qt.ApplicationActive
+                                         && !findSuccessDialog.visible && !applyFriendPopup.visible
+                                         && !privacyDialog.visible && !deleteMessageDialog.visible && !retentionDialog.visible
+                    hasOlder: tcpMgr.chatStore.hasOlder
+                    onConversationVisibleChanged: tcpMgr.setConversationVisible(conversationVisible)
+                    Component.onCompleted: tcpMgr.setConversationVisible(conversationVisible)
+                    onMessageViewed: function(messageId) { tcpMgr.markMessageRead(messageId) }
+                    onRetryMessage: function(msgid) { tcpMgr.retryTextMessage(conversationUid, msgid) }
+                    deletionPending: tcpMgr.deletionPending
+                    onDeleteMessageRequested: function(messageId, sentByMe) {
+                        deleteMessageDialog.messageId = messageId
+                        deleteMessageDialog.sentByMe = sentByMe
+                        deleteMessageDialog.resultText = ""
+                        deleteForEveryone.checked = false
+                        deleteMessageDialog.open()
+                    }
+                    onLoadOlderRequested: tcpMgr.chatStore.loadOlder()
                 }
 
                 // 区域 7：工具栏
@@ -741,7 +961,7 @@ Rectangle {
                         SendBtn {
                             id: sendBtn
                             Layout.preferredWidth: 36; Layout.preferredHeight: 36
-                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeUid > 0
+                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeCanSend
                             onClicked: sendMessage()
                         }
                     }
@@ -759,7 +979,7 @@ Rectangle {
 
     // ── 图片消息发送 ─────────────────────────────────────────
     function sendImageMessage(imagePath) {
-        chatDialog.chatErrorMessage = "本篇只支持纯文本，图片和文件尚未接入"
+        chatDialog.chatErrorMessage = qsTr("暂不支持发送图片和文件")
     }
 
     // ── 全局透明遮罩：点击搜索列表以外区域时隐藏搜索框 ──

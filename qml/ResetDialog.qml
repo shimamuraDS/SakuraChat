@@ -10,6 +10,10 @@ Rectangle {
 
     signal switchLogin()
 
+    ResetController {
+        id: resetController
+    }
+
     // 统一的提示函数，替代原版臃肿的 tipErrors 字典逻辑
     function showTip(message, isSuccess = false) {
         errTip.text = message
@@ -19,7 +23,6 @@ Rectangle {
     // 集中式、线性的表单校验拦截器
     function validateForm() {
         const emailRegex = /^[\w\.-]+@[\w\.-]+\.\w+$/
-        const passRegex = /^[a-zA-Z0-9!@#$%^&*]{6,15}$/
 
         if (userEdit.text.trim() === "") {
             showTip("用户名不能为空", false)
@@ -29,18 +32,15 @@ Rectangle {
             showTip("邮箱地址不正确", false)
             return false
         }
-        if (verifyEdit.text.trim() === "") {
-            showTip("验证码不能为空", false)
+        if (!/^[0-9]{6}$/.test(verifyEdit.text.trim())) {
+            showTip("请输入六位数字验证码", false)
             return false
         }
 
         const pass = pwdEdit.text
-        if (pass.length < 6 || pass.length > 15) {
-            showTip("密码长度应为6~15", false)
-            return false
-        }
-        if (!passRegex.test(pass)) {
-            showTip("密码不能包含非法字符", false)
+        // UTF-8 字节长度由 C++ 控制器与服务器统一校验。
+        if (pass.length === 0) {
+            showTip("密码不能为空", false)
             return false
         }
 
@@ -80,7 +80,7 @@ Rectangle {
 
     // 监听 C++ 后端信号
     Connections {
-        target: ResetController
+        target: resetController
 
         function onVerifyCodeResult(success, message) {
             showTip(message, success)

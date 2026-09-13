@@ -13,6 +13,14 @@ Item {
     property string senderName: ""
     property url    avatarSource
     property string timestamp: ""
+    property string statusText: ""
+    property string expiryText: ""
+    property color statusColor: "#8a8a8a"
+    property bool retryAvailable: false
+    signal retryRequested()
+    property bool deleteAvailable: false
+    property bool deleteBusy: false
+    signal deleteRequested()
 
     // ── 全局配色常量（与 ChatDialog.qml 保持一致）─────────────
     readonly property color _bubbleSelf:    "#2B5278"   // Telegram 深蓝
@@ -171,6 +179,16 @@ Item {
             }
 
             // 时间戳（替代原气泡内右下角绘制）
+            Text { text: root.expiryText; visible: text.length > 0; textFormat: Text.PlainText
+                font.pixelSize: 11; color: "#8a8a8a" }
+            Button {
+                text: qsTr("删除")
+                flat: true
+                visible: root.deleteAvailable
+                enabled: !root.deleteBusy
+                Layout.alignment: root.isSentByMe ? Qt.AlignRight : Qt.AlignLeft
+                onClicked: root.deleteRequested()
+            }
             Text {
                 id: timeLabel
                 textFormat: Text.PlainText
@@ -178,6 +196,22 @@ Item {
                 color: _timeColor
                 font.pixelSize: 11
                 Layout.alignment: isSentByMe ? Qt.AlignRight : Qt.AlignLeft
+            }
+            RowLayout {
+                visible: root.isSentByMe
+                Layout.alignment: Qt.AlignRight
+                Text {
+                    text: root.statusText
+                    textFormat: Text.PlainText
+                    color: root.statusColor
+                    font.pixelSize: 11
+                }
+                Button {
+                    visible: root.retryAvailable
+                    text: qsTr("重试")
+                    flat: true
+                    onClicked: root.retryRequested()
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 #include "httpmgr.h"
 #include <QDebug>
+#include "configmanager.h"
 
 HttpMgr::HttpMgr() {
     // 连接http请求和完成信号
@@ -13,6 +14,14 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     QByteArray data = QJsonDocument(json).toJson();
     // 通过url构造请求
     QNetworkRequest request(url);
+    if (!url.isValid() || url.host().isEmpty() ||
+        (!ConfigManager::instance().development() && url.scheme() != "https")) {
+        emit sig_http_finish(req_id, "", ErrorCodes::ERR_NETWORK, mod);
+        return;
+    }
+    request.setSslConfiguration(ConfigManager::instance().tlsConfiguration());
+    request.setTransferTimeout(15000);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setHeader(QNetworkRequest::ContentLengthHeader, QByteArray::number(data.length()));
 
@@ -24,7 +33,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     // 设置信号和槽等待发送完成
     QObject::connect(reply, &QNetworkReply::finished, [reply, self, req_id, mod]() {
         // 错误
-        if (reply->error() != QNetworkReply::NoError) {
+        if (reply->error() != QNetworkReply::NoError ||
+            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
             qDebug() << "Network error occurred:" << reply->errorString();
             qDebug() << "Error code:" << reply->error();
             // 发送信号通知完成

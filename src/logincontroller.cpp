@@ -42,11 +42,11 @@ void LoginController::initHttpHandlers()
 {
     // 注册获取登录回包逻辑
     _handlers.insert(ReqId::ID_LOGIN_USER, [this](const QJsonObject &jsonObj) {
-        qDebug() << "Login response received:" << jsonObj;
+        qDebug() << "Login response received";
 
         int error = jsonObj["error"].toInt();
         if (error != ErrorCodes::SUCCESS) {
-            QString msg = jsonObj["msg"].toString();
+            QString msg = jsonObj["message"].toString(jsonObj["msg"].toString());
             qDebug() << "Login failed with error:" << error << "message:" << msg;
             emit loginResult(false, error, msg, "");
             return;
