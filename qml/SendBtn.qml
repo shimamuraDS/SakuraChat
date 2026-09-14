@@ -13,9 +13,9 @@ Item {
     property bool  _pressed: false
 
     readonly property color _bgColor: {
-        if (_pressed) return "#1a8bbf"   // press 态：深蓝
-        if (_hovered) return "#36b3f0"   // hover 态：浅蓝
-        return "#2ca5e0"                 // normal 态：Telegram 蓝
+        if (_pressed) return UiTheme.accentPressed
+        if (_hovered) return UiTheme.accentHover
+        return UiTheme.accent
     }
 
     Rectangle {
@@ -34,7 +34,7 @@ Item {
         Text {
             anchors.centerIn: parent
             text: "➤"
-            color: "#ffffff"
+            color: UiTheme.text
             font.pixelSize: 18
         }
 

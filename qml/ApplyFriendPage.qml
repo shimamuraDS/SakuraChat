@@ -17,8 +17,8 @@ Item {
     // 整体背景
     Rectangle {
         anchors.fill: parent
-        color: "#f1f2f3"
-        border { width: 1; color: "#ede9e7" }
+        color: UiTheme.canvas
+        border { width: 1; color: UiTheme.border }
     }
 
     ColumnLayout {
@@ -30,18 +30,18 @@ Item {
             id: headerWid
             Layout.fillWidth: true
             height: 52
-            color: "#f1f2f3"
+            color: UiTheme.canvas
 
             Rectangle {
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
                 height: 1
-                color: "#ede9e7"
+                color: UiTheme.border
             }
 
             Text {
                 anchors { left: parent.left; leftMargin: 16; verticalCenter: parent.verticalCenter }
                 text: "新的朋友"
-                color: "#000000"
+                color: UiTheme.text
                 font { pixelSize: 18; family: "Microsoft YaHei"; weight: Font.Normal }
             }
         }

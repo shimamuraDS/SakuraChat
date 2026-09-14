@@ -19,14 +19,14 @@ Item {
     // 条目背景
     Rectangle {
         anchors.fill: parent
-        color: "#f1f2f3"
+        color: UiTheme.canvas
     }
 
     // 底部分隔线
     Rectangle {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         height: 2
-        color: "#dbd9d9"
+        color: UiTheme.border
     }
 
     RowLayout {
@@ -54,7 +54,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: applyHead.length > 0 ? applyHead[0].toUpperCase() : "?"
-                color: "white"
+                color: UiTheme.text
                 font { pixelSize: 18; bold: true }
             }
         }
@@ -68,7 +68,7 @@ Item {
                 id: userNameLb
                 Layout.fillWidth: true
                 text: applyName
-                color: "#000000"
+                color: UiTheme.text
                 font { pixelSize: 16; family: "Microsoft YaHei" }
                 elide: Text.ElideRight
             }
@@ -77,7 +77,7 @@ Item {
                 id: userChatLb
                 Layout.fillWidth: true
                 text: applyMessage
-                color: "#a2a2a2"
+                color: UiTheme.muted
                 font { pixelSize: 14; family: "Microsoft YaHei" }
                 elide: Text.ElideRight
             }
@@ -95,7 +95,7 @@ Item {
         id: alreadyAddedComp
         Text {
             text: root.status === 1 ? "已添加" : root.status === 2 ? "已拒绝" : "已撤销"
-            color: "#999999"
+            color: UiTheme.muted
             font { pixelSize: 12; family: "Microsoft YaHei" }
         }
     }
@@ -108,9 +108,9 @@ Item {
             width: 72; height: 36
             radius: 18
             color: {
-                if (_pressed) return "#BEBEBE";
-                if (_hovered) return "#D3D3D3";
-                return "#d3d7d4";
+                if (_pressed) return UiTheme.border;
+                if (_hovered) return UiTheme.border;
+                return UiTheme.border;
             }
             Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -120,7 +120,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "添加"
-                color: "#2cb46e"
+                color: UiTheme.success
                 font { pixelSize: 16; family: "Microsoft YaHei" }
             }
 

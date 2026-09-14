@@ -5,8 +5,14 @@
 #include <QQmlContext>
 #include "configmanager.h"
 #include <QQuickStyle>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+#include <QWindow>
+#endif
 
 #include "tcpmgr.h"
+#include "lanchat.h"
 #include "applock.h"
 #include "privatenotifications.h"
 
@@ -14,12 +20,14 @@ int main(int argc, char *argv[])
 {
     QQuickStyle::setStyle("Basic");
     QApplication app(argc, argv);
-    app.setWindowIcon(QIcon(":/SakuraChat.icon"));
+    app.setWindowIcon(QIcon(":/res/sakura-mark.ico"));
 
     ConfigManager::instance().loadConfig();
 
     PrivateNotifications notifications;
+    LanChat lanChat;
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("lanChat", &lanChat);
     engine.rootContext()->setContextProperty("privateNotifications", &notifications);
 
     engine.rootContext()->setContextProperty("tcpMgr", TcpMgr::GetInstance().get());
@@ -43,6 +51,17 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.loadFromModule("SakuraChat", "Main");
+
+#ifdef Q_OS_WIN
+    // Windows 11 rounded desktop corners; unsupported systems keep their native shape.
+    if (!engine.rootObjects().isEmpty()) {
+        if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().first())) {
+            const DWORD roundedCorners = 2; // DWMWCP_ROUND
+            DwmSetWindowAttribute(reinterpret_cast<HWND>(window->winId()),
+                                  33, &roundedCorners, sizeof(roundedCorners));
+        }
+    }
+#endif
 
     return app.exec();
 }

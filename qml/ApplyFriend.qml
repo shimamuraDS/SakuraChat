@@ -18,7 +18,7 @@ Popup {
 
     ApplyFriendModel { id: model; Component.onCompleted: initDemoTags() }
 
-    TextField {
+    SakuraField {
         id: backNameField
         Layout.fillWidth: true
         placeholderText: root.targetName
@@ -27,7 +27,7 @@ Popup {
 
     background: Rectangle {
         radius: 12
-        color: "#ffffff"
+        color: UiTheme.surface
         layer.enabled: true
         layer.effect: /* DropShadow */ null  // 可接入 Qt Graphical Effects
     }
@@ -41,14 +41,14 @@ Popup {
         Rectangle {
             Layout.fillWidth: true
             height: 52
-            color: "#ffffff"
+            color: UiTheme.surface
             radius: 12
 
             Label {
                 anchors.centerIn: parent
                 text: "申请添加好友"
                 font { pixelSize: 16; bold: true; family: "Microsoft YaHei" }
-                color: "#222222"
+                color: UiTheme.text
             }
             // 关闭按钮
             RoundButton {
@@ -60,12 +60,12 @@ Popup {
                 contentItem: Text { text: parent.text; color: "#888"; font: parent.font
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment:   Text.AlignVCenter }
-                background: Rectangle { radius: 14; color: parent.hovered ? "#f0f0f0" : "transparent" }
+                background: Rectangle { radius: 14; color: parent.hovered ? UiTheme.canvas : "transparent" }
                 onClicked: root.close()
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: "#eeeeee" }
+        Rectangle { Layout.fillWidth: true; height: 1; color: UiTheme.border }
 
         // ── 内容区 ──────────────────────────────────────
         ScrollView {
@@ -83,8 +83,8 @@ Popup {
                 Label { text: "验证消息"; color: "#555"; font.pixelSize: 13 }
                 Rectangle {
                     Layout.fillWidth: true; height: 72
-                    radius: 8; color: "#f7f7f7"
-                    border.color: msgField.activeFocus ? "#2AABEE" : "#e0e0e0"
+                    radius: 8; color: UiTheme.canvas
+                    border.color: msgField.activeFocus ? UiTheme.accent : UiTheme.border
                     TextArea {
                         id: msgField
                         anchors.fill: parent; anchors.margins: 8
@@ -116,7 +116,7 @@ Popup {
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: "#eeeeee" }
+        Rectangle { Layout.fillWidth: true; height: 1; color: UiTheme.border }
 
         // ── 底部按钮 ─────────────────────────────────────
         RowLayout {

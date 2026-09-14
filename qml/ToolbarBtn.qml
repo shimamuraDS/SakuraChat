@@ -12,7 +12,7 @@ AbstractButton {
     Rectangle {
         anchors.fill: parent
         radius: 6
-        color: root.hovered ? "#f0f0f0" : "transparent"
+        color: root.hovered ? UiTheme.canvas : "transparent"
         Behavior on color { ColorAnimation { duration: 100 } }
 
         Text {

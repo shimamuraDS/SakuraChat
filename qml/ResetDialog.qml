@@ -5,8 +5,8 @@ import SakuraChat
 
 Rectangle {
     id: resetDialog
-    color: "#f0f0f0"
-    radius: 10
+    color: UiTheme.canvas
+    radius: 0
 
     signal switchLogin()
 
@@ -17,7 +17,7 @@ Rectangle {
     // 统一的提示函数，替代原版臃肿的 tipErrors 字典逻辑
     function showTip(message, isSuccess = false) {
         errTip.text = message
-        errTip.color = isSuccess ? "#28a745" : "#dc3545"
+        errTip.color = isSuccess ? UiTheme.success : UiTheme.danger
     }
 
     // 集中式、线性的表单校验拦截器
@@ -108,20 +108,21 @@ Rectangle {
         spacing: 15
 
         Text {
-            text: "重置密码"
+            text: "找回你的账号"
+            color: UiTheme.text
             font.pixelSize: 24
             font.bold: true
             Layout.alignment: Qt.AlignHCenter
         }
 
-        TextField {
+        SakuraField {
             id: userEdit
             placeholderText: "用户名"
             Layout.fillWidth: true
             // 删除了繁琐的 onEditingFinished
         }
 
-        TextField {
+        SakuraField {
             id: emailEdit
             placeholderText: "邮箱"
             Layout.fillWidth: true
@@ -129,7 +130,7 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
-            TextField {
+            SakuraField {
                 id: verifyEdit
                 placeholderText: "验证码"
                 Layout.fillWidth: true
@@ -142,7 +143,7 @@ Rectangle {
             }
         }
 
-        TextField {
+        SakuraField {
             id: pwdEdit
             placeholderText: "新密码"
             echoMode: TextInput.Password
@@ -161,13 +162,14 @@ Rectangle {
             font.pixelSize: 13
         }
 
-        Button {
+        SakuraButton {
+            primary: true
             text: "确认重置"
             Layout.fillWidth: true
             onClicked: onSureBtnClicked()
         }
 
-        Button {
+        SakuraButton {
             text: "返回登录"
             Layout.fillWidth: true
             onClicked: resetDialog.switchLogin()

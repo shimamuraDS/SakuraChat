@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 
-Button {
+SakuraButton {
     id: btn
     property string style: "primary"  // "primary" | "secondary"
 
@@ -11,7 +11,7 @@ Button {
     contentItem: Text {
         text: btn.text
         font: btn.font
-        color: btn.style === "primary" ? "#ffffff" : "#2AABEE"
+        color: btn.style === "primary" ? UiTheme.text : UiTheme.accent
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment:   Text.AlignVCenter
     }
@@ -20,9 +20,9 @@ Button {
         radius: 20
         color: {
             if (btn.style === "primary")
-                return btn.pressed ? "#1a8ccc" : btn.hovered ? "#2AABEE" : "#2AABEE"
+                return btn.pressed ? UiTheme.accentPressed : btn.hovered ? UiTheme.accentHover : UiTheme.accent
             else
-                return btn.pressed ? "#d0d0d0" : btn.hovered ? "#e8e8e8" : "#f0f0f0"
+                return btn.pressed ? UiTheme.hover : btn.hovered ? UiTheme.hover : UiTheme.canvas
         }
         Behavior on color { ColorAnimation { duration: 120 } }
     }

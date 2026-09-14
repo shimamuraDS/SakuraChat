@@ -9,8 +9,8 @@ Rectangle {
     signal tagRemoved(string tag)
 
     height: flow.height + 16
-    radius: 8; color: "#f7f7f7"
-    border.color: tagInput.activeFocus ? "#2AABEE" : "#e0e0e0"
+    radius: 8; color: UiTheme.canvas
+    border.color: tagInput.activeFocus ? UiTheme.accent : UiTheme.border
 
     Flow {
         id: flow
@@ -27,7 +27,7 @@ Rectangle {
             }
         }
 
-        TextField {
+        SakuraField {
             id: tagInput
             width: 100; height: 28
             placeholderText: "输入标签…"

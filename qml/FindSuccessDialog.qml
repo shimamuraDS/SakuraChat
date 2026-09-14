@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-Dialog {
+SakuraDialog {
     id: root
     title: ""
     modal: true
@@ -13,7 +13,7 @@ Dialog {
     // 对外属性，由 SearchList 的 itemClicked 信号传入
     property string userId: ""
     property string userName: "未知用户"
-    property string avatarSource: "qrc:/res/SakuraChat.png"
+    property string avatarSource: "qrc:/res/sakura-mark.png"
     property bool isFriend: false
 
     signal applyRequested(int uid, string name, string avatar)
@@ -21,10 +21,10 @@ Dialog {
     // ── 自定义圆角背景 ──
     background: Rectangle {
         radius: 12
-        color: "#FFFFFF"
+        color: UiTheme.surface
         layer.enabled: true
         layer.effect: null   // 可替换为 DropShadow
-        border.color: "#E0E0E0"
+        border.color: UiTheme.border
         border.width: 1
     }
 
@@ -44,8 +44,8 @@ Dialog {
                 color: parent.color
             }
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#1A73E8" }
-                GradientStop { position: 1.0; color: "#0D47A1" }
+                GradientStop { position: 0.0; color: UiTheme.accent }
+                GradientStop { position: 1.0; color: UiTheme.accentPressed }
             }
 
             // 头像
@@ -71,21 +71,21 @@ Dialog {
             text: root.userName
             font.pixelSize: 18
             font.bold: true
-            color: "#212121"
+            color: UiTheme.text
         }
 
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: "ID: " + root.userId
             font.pixelSize: 13
-            color: "#757575"
+            color: UiTheme.secondary
             topPadding: 4
         }
 
         // ── 操作按钮 ──
         Item { Layout.preferredHeight: 20 }
 
-        Button {
+        SakuraButton {
             Layout.fillWidth: true
             Layout.leftMargin: 24
             Layout.rightMargin: 24
@@ -95,7 +95,7 @@ Dialog {
 
             contentItem: Text {
                 text: parent.text
-                color: "#FFFFFF"
+                color: UiTheme.text
                 font: parent.font
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -103,7 +103,7 @@ Dialog {
 
             background: Rectangle {
                 radius: 8
-                color: parent.hovered ? "#1565C0" : "#1A73E8"
+                color: parent.hovered ? UiTheme.accentPressed : UiTheme.accent
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
 

@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Dialog {
+SakuraDialog {
     id: root
     modal: true
     anchors.centerIn: Overlay.overlay

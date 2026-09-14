@@ -2,40 +2,50 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import SakuraChat
 
 Rectangle {
     id: chatDialog
     width: 1000
     height: 680
-    color: "#ffffff"
+    color: UiTheme.surface
     // ───────────────────────────────────────────────────
     // 颜色常量
     // ───────────────────────────────────────────────────
-    readonly property color sidebarBg:      "#2b5278"
-    readonly property color panelBg:        "#ffffff"
-    readonly property color panelBorder:    "#e4e4e4"
-    readonly property color searchBg:       "#f1f3f4"
-    readonly property color accentBlue:     "#2b9af3"
-    readonly property color msgBubbleSelf:  "#effdde"
-    readonly property color msgBubbleOther: "#ffffff"
-    readonly property color textPrimary:    "#000000"
-    readonly property color textSecondary:  "#707070"
-    readonly property color hoverOverlay:   "#1a000000"
-    readonly property color contactBg:        "#f1f2f3"
-    readonly property color contactDivider:   "#ede9e7"
-    readonly property color applyItemDivider: "#dbd9d9"
-    readonly property color addBtnNormal:     "#d3d7d4"
-    readonly property color addBtnHover:      "#D3D3D3"
-    readonly property color addBtnPress:      "#BEBEBE"
-    readonly property color addBtnText:       "#2cb46e"
+    readonly property color sidebarBg:      UiTheme.rail
+    readonly property color panelBg:        UiTheme.surface
+    readonly property color panelBorder:    UiTheme.border
+    readonly property color searchBg:       UiTheme.field
+    readonly property color accentBlue:     UiTheme.accent
+    readonly property color msgBubbleSelf:  UiTheme.selection
+    readonly property color msgBubbleOther: UiTheme.surface
+    readonly property color textPrimary:    UiTheme.text
+    readonly property color textSecondary:  UiTheme.secondary
+    readonly property color hoverOverlay:   UiTheme.scrim
+    readonly property color contactBg:        UiTheme.canvas
+    readonly property color contactDivider:   UiTheme.border
+    readonly property color applyItemDivider: UiTheme.border
+    readonly property color addBtnNormal:     UiTheme.border
+    readonly property color addBtnHover:      UiTheme.border
+    readonly property color addBtnPress:      UiTheme.border
+    readonly property color addBtnText:       UiTheme.success
 
     property string activeTab: "chat"
+    property bool detailsOpen: true
+    readonly property int pendingApplications: applyFriendPage.pendingCount
+    readonly property bool privacyOpen: privacyDialog.visible
+    function triggerUtility(action) {
+        if (appLock.locked) return
+        if (action === "privacy") privacyDialog.open()
+        else if (action === "lock") chatDialog.lockSettingsRequested()
+        else if (action === "refresh" && tcpMgr.chatReady && !tcpMgr.friendSyncBusy) tcpMgr.refreshFriends()
+    }
     property string chatErrorMessage: ""
     signal logoutRequested()
     signal lockSettingsRequested()
 
-    Dialog {
+    SakuraDialog {
         id: retentionDialog
         title: qsTr("今后发出消息的自动删除")
         anchors.centerIn: parent
@@ -51,10 +61,10 @@ Rectangle {
         contentItem: ColumnLayout {
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap
                 text: qsTr("只影响设置成功后发出的新消息。到期会为双方删除；旧消息不补设期限，关闭也不取消已排定的期限。截图、导出和备份无法远程擦除。") }
-            ComboBox { id: retentionChoice; Layout.fillWidth: true; enabled: !tcpMgr.privacyPending
+            SakuraComboBox { id: retentionChoice; Layout.fillWidth: true; enabled: !tcpMgr.privacyPending
                 model: [qsTr("关闭"), qsTr("24 小时"), qsTr("7 天"), qsTr("30 天")] }
-            CheckBox { id: retentionConsent; text: qsTr("我已了解上述删除范围和不可撤销性"); enabled: !tcpMgr.privacyPending }
-            Button { text: qsTr("确认保存"); enabled: retentionConsent.checked && !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
+            SakuraCheckBox { id: retentionConsent; text: qsTr("我已了解上述删除范围和不可撤销性"); enabled: !tcpMgr.privacyPending }
+            SakuraButton { text: qsTr("确认保存"); enabled: retentionConsent.checked && !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
                 onClicked: {
                     retentionDialog.submitted = true
                     chatDialog.chatErrorMessage = ""
@@ -63,7 +73,7 @@ Rectangle {
             }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
                 text: tcpMgr.privacyPending ? qsTr("正在保存…") : chatDialog.chatErrorMessage }
-            Button { text: qsTr("关闭"); onClicked: retentionDialog.close() }
+            SakuraButton { text: qsTr("关闭"); onClicked: retentionDialog.close() }
         }
         Connections {
             target: tcpMgr
@@ -79,7 +89,7 @@ Rectangle {
         Connections { target: appLock; function onChanged() { if (appLock.locked) retentionDialog.close() } }
     }
 
-    Dialog {
+    SakuraDialog {
         id: deleteMessageDialog
         property string messageId: ""
         property bool sentByMe: false
@@ -92,13 +102,13 @@ Rectangle {
         contentItem: ColumnLayout {
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap
                 text: qsTr("默认仅从你的账号删除，对方仍可保留消息。删除不可撤销，不能清除对方已有截图、导出或备份。") }
-            CheckBox { id: deleteForEveryone; visible: deleteMessageDialog.sentByMe
+            SakuraCheckBox { id: deleteForEveryone; visible: deleteMessageDialog.sentByMe
                 text: qsTr("同时为对方删除（仅发送者可选）"); enabled: !tcpMgr.deletionPending }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
                 text: tcpMgr.deletionPending ? qsTr("正在等待服务器确认…") : deleteMessageDialog.resultText }
             RowLayout {
-                Button { text: qsTr("取消"); enabled: !tcpMgr.deletionPending; onClicked: deleteMessageDialog.close() }
-                Button { text: qsTr("确认删除"); enabled: !tcpMgr.deletionPending
+                SakuraButton { text: qsTr("取消"); enabled: !tcpMgr.deletionPending; onClicked: deleteMessageDialog.close() }
+                SakuraButton { text: qsTr("确认删除"); enabled: !tcpMgr.deletionPending
                     onClicked: {
                         deleteMessageDialog.resultText = ""
                         tcpMgr.deleteMessage(deleteMessageDialog.messageId, deleteMessageDialog.sentByMe && deleteForEveryone.checked)
@@ -121,11 +131,11 @@ Rectangle {
         }
     }
 
-    Dialog {
+    SakuraDialog {
         id: privacyDialog
         title: qsTr("隐私与安全 · 云端聊天")
         anchors.centerIn: parent
-        width: 440
+        width: Math.min(540, chatDialog.width - 48)
         modal: true
         standardButtons: Dialog.Close
         onOpened: {
@@ -134,7 +144,7 @@ Rectangle {
         }
         contentItem: ScrollView {
             id: privacyScroll
-            implicitHeight: Math.min(520, privacyColumn.implicitHeight)
+            implicitHeight: Math.min(chatDialog.height - 160, 540, privacyColumn.implicitHeight)
             contentWidth: availableWidth
             clip: true
             ColumnLayout {
@@ -143,26 +153,27 @@ Rectangle {
             spacing: 10
             Label { text: qsTr("设置由服务器执行；本模式不是端到端加密。") }
             RowLayout {
-                Button { text: qsTr("应用锁设置")
+                SakuraButton { text: qsTr("应用锁设置")
                     onClicked: { privacyDialog.close(); chatDialog.lockSettingsRequested() } }
-                Button { text: qsTr("自动删除设置"); enabled: !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
+                SakuraButton { text: qsTr("自动删除设置"); enabled: !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
                     onClicked: { privacyDialog.close(); retentionDialog.open() } }
             }
             Label { text: qsTr("谁可以搜索到我") }
-            ComboBox { id: searchPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
+            SakuraComboBox { id: searchPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
             Label { text: qsTr("谁可以向我发送好友申请") }
-            ComboBox { id: requestPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "不接受"] }
+            SakuraComboBox { id: requestPrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "不接受"] }
             Label { text: qsTr("谁可以查看头像、昵称与简介") }
-            ComboBox { id: profilePrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
-            CheckBox { id: readPrivacy; text: qsTr("发送已读回执（关闭不撤回已发送的回执）") }
-            CheckBox {
+            SakuraComboBox { id: profilePrivacy; Layout.fillWidth: true; model: ["所有人", "好友", "仅自己"] }
+            SakuraCheckBox { Layout.fillWidth: true; id: readPrivacy; text: qsTr("发送已读回执（关闭不撤回已发送的回执）") }
+            SakuraCheckBox {
                 text: qsTr("桌面通用提醒（不显示联系人或正文）")
                 checked: privateNotifications.enabled
                 onClicked: privateNotifications.enabled = checked
             }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
                 text: privateNotifications.available ? privateNotifications.message : qsTr("当前系统暂不支持桌面提醒") }
-            Button {
+            SakuraButton {
+                primary: true
                 text: qsTr("保存隐私设置")
                 enabled: !tcpMgr.privacyPending && tcpMgr.privacy.error === 0
                 onClicked: tcpMgr.privacyCommand({action: "set", search_policy: searchPrivacy.currentIndex,
@@ -170,15 +181,15 @@ Rectangle {
                     read_receipts: readPrivacy.checked})
             }
             RowLayout {
-                TextField { id: blockUid; placeholderText: qsTr("用户 UID"); validator: IntValidator { bottom: 1 } }
-                Button { text: qsTr("拉黑"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
+                SakuraField { Layout.fillWidth: true; Layout.minimumWidth: 90; id: blockUid; placeholderText: qsTr("用户 UID"); validator: IntValidator { bottom: 1 } }
+                SakuraButton { text: qsTr("拉黑"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
                     onClicked: tcpMgr.privacyCommand({action: "block", uid: Number(blockUid.text)}) }
-                Button { text: qsTr("解除"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
+                SakuraButton { text: qsTr("解除"); enabled: blockUid.acceptableInput && !tcpMgr.privacyPending
                     onClicked: tcpMgr.privacyCommand({action: "unblock", uid: Number(blockUid.text)}) }
             }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
                 text: qsTr("本页黑名单 UID：") + (tcpMgr.privacy.blocked || []).join(", ") }
-            Button { text: qsTr("下一页黑名单"); visible: tcpMgr.privacy.has_more === true; enabled: !tcpMgr.privacyPending
+            SakuraButton { text: qsTr("下一页黑名单"); visible: tcpMgr.privacy.has_more === true; enabled: !tcpMgr.privacyPending
                 onClicked: tcpMgr.privacyCommand({action: "get", after_uid: tcpMgr.privacy.next_uid}) }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText
                 text: tcpMgr.privacyPending ? qsTr("正在与服务器同步…") : chatDialog.chatErrorMessage }
@@ -285,102 +296,42 @@ Rectangle {
         // 区域 1：左侧侧边栏
         // ═══════════════════════════════════════════════
         Rectangle {
-            Layout.preferredWidth: 60
+            Layout.preferredWidth: 72
             Layout.fillHeight: true
             color: chatDialog.sidebarBg
 
             Column {
-                anchors.top: parent.top
-                anchors.topMargin: 12
+                anchors.top: parent.top; anchors.topMargin: 20
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 12
-
-                // 头像
+                spacing: 16
                 Rectangle {
-                    width: 40; height: 40
-                    radius: 20
-                    color: chatDialog.accentBlue
-                    Text {
-                        anchors.centerIn: parent
-                        text: "我"
-                        color: "#ffffff"
-                        font.pixelSize: 14; font.bold: true
-                    }
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 40; height: 40; radius: 12
+                    color: UiTheme.selection; border.color: UiTheme.border
+                    Image { anchors.fill: parent; source: "qrc:/res/sakura-mark.png"; mipmap: true; fillMode: Image.PreserveAspectFit }
                 }
-
-                // ── 修改点 1：侧边栏按钮互斥选中 ──────────────────────
                 SidebarIconBtn {
-                    iconText: "↪"
-                    tooltipText: qsTr("退出登录")
-                    onClicked: chatDialog.logoutRequested()
-                }
-                // 四个独立的 SidebarIconBtn，
-                SidebarIconBtn {
-                    iconText: "⚙"
-                    tooltipText: qsTr("隐私与安全")
-                    onClicked: privacyDialog.open()
-                }
-                // isActive 绑定到顶层 activeTab 属性，点击时赋值 activeTab
-                // 即可自动清除其他按钮的激活态。
-                SidebarIconBtn {
-                    iconText: "💬"
-                    tooltipText: "聊天"
+                    iconText: "chat"; tooltipText: qsTr("聊天")
                     isActive: chatDialog.activeTab === "chat"
                     onClicked: chatDialog.activeTab = "chat"
                 }
-
                 SidebarIconBtn {
-                    iconText: "👤"
-                    tooltipText: "好友申请"
-                    isActive: chatDialog.activeTab === "apply"
-                    onClicked: chatDialog.activeTab = "apply"
-
-                    // 新增：按钮右上角的待处理数量
-                    Rectangle {
-                        anchors.top: parent.top
-                        anchors.right: parent.right
-                        anchors.topMargin: 2
-                        anchors.rightMargin: 2
-
-                        width: applyFriendPage.pendingCount > 99 ? 24 : 18
-                        height: 18
-                        radius: 9
-                        z: 10
-
-                        color: "#ef4444"
-                        visible: applyFriendPage.pendingCount > 0
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: applyFriendPage.pendingCount > 99
-                                  ? "99+"
-                                  : String(applyFriendPage.pendingCount)
-                            color: "white"
-                            font.pixelSize: 9
-                        }
-                    }
-                }
-
-                SidebarIconBtn {
-                    iconText: "👥"
-                    tooltipText: "联系人"
+                    iconText: "contacts"; tooltipText: qsTr("联系人")
                     isActive: chatDialog.activeTab === "contact"
                     onClicked: chatDialog.activeTab = "contact"
                 }
-
                 SidebarIconBtn {
-                    iconText: "📞"
-                    tooltipText: "通话"
-                    isActive: chatDialog.activeTab === "call"
-                    onClicked: chatDialog.activeTab = "call"
+                    iconText: "request"; tooltipText: qsTr("好友申请")
+                    isActive: chatDialog.activeTab === "apply"
+                    badgeCount: chatDialog.pendingApplications
+                    onClicked: chatDialog.activeTab = "apply"
                 }
-
-                SidebarIconBtn {
-                    iconText: "⚙️"
-                    tooltipText: "设置"
-                    isActive: chatDialog.activeTab === "setting"
-                    onClicked: chatDialog.activeTab = "setting"
-                }
+            }
+            SidebarIconBtn {
+                anchors.bottom: parent.bottom; anchors.bottomMargin: 18
+                anchors.horizontalCenter: parent.horizontalCenter
+                iconText: "logout"; tooltipText: qsTr("退出登录")
+                onClicked: chatDialog.logoutRequested()
             }
         }
 
@@ -389,7 +340,7 @@ Rectangle {
         // ═══════════════════════════════════════════════
         Rectangle {
             id: contactListPanel
-            Layout.preferredWidth: 300
+            Layout.preferredWidth: 292
             Layout.fillHeight: true
             color: chatDialog.panelBg
 
@@ -408,8 +359,8 @@ Rectangle {
                 // 区域 2：搜索栏
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 48
-                    color: "#ffffff"
+                    Layout.preferredHeight: 64
+                    color: UiTheme.surface
 
                     RowLayout {
                         anchors.fill: parent
@@ -422,7 +373,7 @@ Rectangle {
                             radius: 4
                             color: chatDialog.searchBg
 
-                            TextField {
+                            SakuraField {
                                 id: searchInput
                                 anchors.fill: parent
                                 placeholderText: "搜索"
@@ -496,18 +447,22 @@ Rectangle {
 
                     ListView {
                         id: chatListView
+                        spacing: 6
+                        topMargin: 8
+                        bottomMargin: 8
                         clip: true
                         model: tcpMgr.chatStore.conversations
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                         delegate: ChatUserWid {
                             required property var modelData
-                            width: chatListView.width
+                            selected: tcpMgr.chatStore.activeUid === modelData.uid
+                            x: 10
+                            width: chatListView.width - 20
                             userName: modelData.name
                             headImg: modelData.head || ""
-                            lastMsg: (modelData.unread > 0
-                                      ? "[" + modelData.unread + " 条未读] " : "")
-                                     + modelData.lastMsg
+                            unreadCount: modelData.unread
+                            lastMsg: modelData.lastMsg
                             msgTime: modelData.time
                             onClicked: chatDialog.openPeer(modelData.uid)
                         }
@@ -522,10 +477,10 @@ Rectangle {
                         header: Row {
                             width: contactListView.width
                             spacing: 8
-                            Button {
-                                text: tcpMgr.friendSyncBusy ? "同步中…" : "刷新联系人"
-                                enabled: tcpMgr.chatReady && !tcpMgr.friendSyncBusy
-                                onClicked: tcpMgr.refreshFriends()
+                            Label {
+                                text: tcpMgr.friendSyncBusy ? qsTr("正在同步联系人…") : qsTr("联系人")
+                                padding: 12
+                                color: UiTheme.secondary
                             }
                             BusyIndicator {
                                 width: 32
@@ -560,7 +515,7 @@ Rectangle {
                 id: searchPanel
                 anchors.fill: parent
                 anchors.topMargin: 48      // 搜索栏高度，不遮挡搜索框
-                color: "#f7f7f8"
+                color: UiTheme.surface
                 z: 3
                 visible: false
 
@@ -574,7 +529,7 @@ Rectangle {
                     header: Rectangle {
                         width: searchListView.width
                         height: 56
-                        color: addTipMouse.containsMouse ? "#cecfd0" : "#f7f7f8"
+                        color: addTipMouse.containsMouse ? UiTheme.hover : UiTheme.surface
                         Behavior on color { ColorAnimation { duration: 100 } }
 
                         MouseArea {
@@ -606,7 +561,7 @@ Rectangle {
                                 Text {
                                     anchors.centerIn: parent
                                     text: "+"
-                                    color: "white"
+                                    color: UiTheme.text
                                     font.pixelSize: 22; font.bold: true
                                 }
                             }
@@ -617,14 +572,14 @@ Rectangle {
                                 Text {
                                     text: "添加好友"
                                     font.pixelSize: 14
-                                    color: "#000000"
+                                    color: UiTheme.text
                                 }
                                 Text {
                                     text: searchInput.text.length > 0
                                           ? "搜索 \"" + searchInput.text + "\""
                                           : ""
                                     font.pixelSize: 12
-                                    color: "#888888"
+                                    color: UiTheme.muted
                                     font.family: "Microsoft YaHei"
                                 }
                             }
@@ -632,7 +587,7 @@ Rectangle {
                             Text {
                                 text: "›"
                                 font.pixelSize: 20
-                                color: "#aaaaaa"
+                                color: UiTheme.muted
                             }
                         }
 
@@ -643,7 +598,7 @@ Rectangle {
                             anchors.leftMargin: 58
                             anchors.right: parent.right
                             height: 1
-                            color: "#eaeaea"
+                            color: UiTheme.border
                         }
                     }
 
@@ -651,7 +606,7 @@ Rectangle {
                     delegate: Rectangle {
                         width: searchListView.width
                         height: 60
-                        color: resultMouse.containsMouse ? "#cecfd0" : "#f7f7f8"
+                        color: resultMouse.containsMouse ? UiTheme.hover : UiTheme.surface
                         Behavior on color { ColorAnimation { duration: 100 } }
 
                         MouseArea {
@@ -663,7 +618,7 @@ Rectangle {
                                 // 把服务器返回的用户资料传给弹窗
                                 findSuccessDialog.userId = String(model.uid)
                                 findSuccessDialog.userName = model.name
-                                findSuccessDialog.avatarSource = model.icon || "qrc:/res/SakuraChat.png"
+                                findSuccessDialog.avatarSource = model.icon || "qrc:/res/sakura-mark.png"
                                 findSuccessDialog.isFriend = model.isFriend
 
                                 findSuccessDialog.open()
@@ -684,7 +639,7 @@ Rectangle {
                                 width: 40; height: 40
                                 radius: 20
                                 color: (model.icon !== undefined && model.icon !== "")
-                                       ? "transparent" : "#54a0d5"
+                                       ? "transparent" : UiTheme.cyan
                                 Image {
                                     anchors.fill: parent
                                     source: (model.icon !== undefined) ? model.icon : ""
@@ -695,7 +650,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     text: (model.name !== undefined && model.name.length > 0)
                                           ? model.name[0].toUpperCase() : "?"
-                                    color: "white"
+                                    color: UiTheme.text
                                     font.pixelSize: 16; font.bold: true
                                     visible: model.icon === undefined || model.icon === ""
                                 }
@@ -707,12 +662,12 @@ Rectangle {
                                 Text {
                                     text: model.name !== undefined ? model.name : ""
                                     font.pixelSize: 14
-                                    color: "#000000"
+                                    color: UiTheme.text
                                 }
                                 Text {
                                     text: model.desc !== undefined ? model.desc : ""
                                     font.pixelSize: 12
-                                    color: "#999999"
+                                    color: UiTheme.muted
                                     elide: Text.ElideRight
                                     width: searchListView.width - 80
                                 }
@@ -726,7 +681,7 @@ Rectangle {
                             anchors.leftMargin: 62
                             anchors.right: parent.right
                             height: 1
-                            color: "#eeeeee"
+                            color: UiTheme.border
                         }
                     }
 
@@ -749,8 +704,8 @@ Rectangle {
                                   : "未找到相关用户"
 
                             color: chatDialog.searchError.length > 0
-                                   ? "#d14343"
-                                   : "#888888"
+                                   ? UiTheme.danger
+                                   : UiTheme.muted
 
                             font.pixelSize: 13
                             font.family: "Microsoft YaHei"
@@ -766,7 +721,7 @@ Rectangle {
                 anchors.fill: searchPanel
                 z: 10
                 visible: searchPanel.visible && tcpMgr.searchPending
-                color: "#80ffffff"
+                color: UiTheme.scrim
 
                 BusyIndicator {
                     anchors.centerIn: parent
@@ -786,7 +741,7 @@ Rectangle {
 
             // 页面 0: 未选择聊天时的占位页
             Rectangle {
-                color: "#f0f4f8"
+                color: UiTheme.canvas
                 Text {
                     anchors.centerIn: parent
                     text: "请选择一个联系人开始聊天"
@@ -807,7 +762,7 @@ Rectangle {
                         Layout.fillWidth: true
                         text: chatDialog.chatErrorMessage
                         textFormat: Text.PlainText
-                        color: "#725b37"
+                        color: UiTheme.warning
                         wrapMode: Text.Wrap
                     }
                     ToolButton {
@@ -822,7 +777,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 56
-                    color: "#ffffff"
+                    color: UiTheme.surface
 
                     Rectangle {
                         anchors.bottom: parent.bottom
@@ -838,11 +793,11 @@ Rectangle {
                         Rectangle {
                             Layout.preferredWidth: 36; Layout.preferredHeight: 36
                             radius: 18
-                            color: "#7bc67e"
+                            color: UiTheme.success
                             Text {
                                 anchors.centerIn: parent
-                                text: "A"
-                                color: "#ffffff"
+                                text: tcpMgr.chatStore.activeName.slice(0, 1).toUpperCase()
+                                color: UiTheme.text
                                 font.pixelSize: 14; font.bold: true
                             }
                         }
@@ -853,17 +808,13 @@ Rectangle {
                             Text { text: tcpMgr.chatReady ? qsTr("已连接") : qsTr("连接已断开"); font.pixelSize: 12; color: chatDialog.accentBlue }
                         }
 
-                        Row {
-                            spacing: 16
-                            Repeater {
-                                model: ["🔍", "⋮"]
-                                delegate: Text {
-                                    text: modelData
-                                    font.pixelSize: 18
-                                    color: chatDialog.textSecondary
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
-                                }
-                            }
+                        SakuraButton {
+                            text: chatDialog.detailsOpen ? qsTr("收起详情") : qsTr("会话详情")
+                            enabled: chatDialog.width >= 1180
+                            implicitWidth: 88; implicitHeight: 32
+                            onClicked: chatDialog.detailsOpen = !chatDialog.detailsOpen
+                            ToolTip.visible: hovered && !enabled
+                            ToolTip.text: qsTr("加宽窗口以显示详情栏")
                         }
                     }
                 }
@@ -898,8 +849,8 @@ Rectangle {
                 // 区域 7：工具栏
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 40
-                    color: "#ffffff"
+                    Layout.preferredHeight: 26
+                    color: UiTheme.surface
 
                     Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: chatDialog.panelBorder }
 
@@ -908,10 +859,7 @@ Rectangle {
                         anchors.leftMargin: 12
                         spacing: 16
 
-                        Repeater {
-                            model: ["📎", "🖼️", "😊", "📍"]
-                            delegate: ToolbarBtn { iconText: modelData }
-                        }
+                        Text { text: qsTr("Enter 发送 · Shift + Enter 换行"); color: UiTheme.muted; font.pixelSize: 10 }
                         Item { Layout.fillWidth: true }
                     }
                 }
@@ -919,8 +867,8 @@ Rectangle {
                 // 区域 8 + 9：输入区域 + 发送按钮
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 60
-                    color: "#ffffff"
+                    Layout.preferredHeight: 64
+                    color: UiTheme.surface
 
                     RowLayout {
                         anchors.fill: parent
@@ -928,17 +876,53 @@ Rectangle {
                         spacing: 10
 
                         Rectangle {
+                            id: composerFrame
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            radius: 8
+                            radius: 9
                             color: chatDialog.searchBg
+                            border.width: 1
+                            border.color: messageInput.activeFocus ? UiTheme.cyan : UiTheme.accent
+                            Behavior on border.color { ColorAnimation { duration: 140 } }
+                            Rectangle {
+                                anchors.fill: parent
+                                z: -1
+                                radius: parent.radius; color: UiTheme.accent
+                                layer.enabled: true
+                                layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 16 }
+                                opacity: messageInput.activeFocus ? 0.45 : 0.16
+                                Behavior on opacity { NumberAnimation { duration: 140 } }
+                            }
+                            Text {
+                                anchors.left: parent.left; anchors.leftMargin: 13
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "›"; color: UiTheme.cyan; font.pixelSize: 28
+                            }
 
                             ScrollView {
+                                id: composerScroll
                                 anchors.fill: parent
-                                anchors.margins: 4
+                                anchors.margins: 1
+                                anchors.leftMargin: 34
+                                anchors.rightMargin: 8
+                                contentWidth: availableWidth
+                                clip: true
+                                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                                 TextArea {
                                     id: messageInput
                                     placeholderText: "输入消息…"
+                                    placeholderTextColor: UiTheme.muted
+                                    selectionColor: UiTheme.selection
+                                    selectedTextColor: UiTheme.text
+                                    // Only depend on the externally sized frame and font metrics.
+                                    // contentHeight participates in Basic.TextArea.implicitHeight;
+                                    // feeding it back into padding creates a sizing cycle.
+                                    topPadding: Math.max(4, (composerFrame.height - 2 - composerMetrics.height) / 2)
+                                    bottomPadding: topPadding
+                                    leftPadding: 0
+                                    rightPadding: 0
+                                    verticalAlignment: TextEdit.AlignTop
+                                    FontMetrics { id: composerMetrics; font: messageInput.font }
                                     font.pixelSize: 14
                                     color: chatDialog.textPrimary
                                     wrapMode: TextEdit.Wrap
@@ -958,15 +942,35 @@ Rectangle {
                             }
                         }
 
-                        SendBtn {
+                        SakuraButton {
                             id: sendBtn
-                            Layout.preferredWidth: 36; Layout.preferredHeight: 36
-                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeCanSend
+                            primary: true
+                            text: qsTr("发送")
+                            Accessible.name: text
+                            Layout.preferredWidth: 106
+                            Layout.fillHeight: true
+                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeCanSend && messageInput.text.trim().length > 0
+                            contentItem: RowLayout {
+                                spacing: 8
+                                SakuraIcon { Layout.preferredWidth: 22; Layout.preferredHeight: 22; name: "send"; color: UiTheme.accentText }
+                                Text { text: sendBtn.text; color: UiTheme.accentText; font.pixelSize: 14 }
+                            }
                             onClicked: sendMessage()
                         }
                     }
                 }
             }
+        }
+        ConversationInfo {
+            Layout.preferredWidth: 236
+            Layout.fillHeight: true
+            visible: chatDialog.detailsOpen && chatDialog.width >= 1180
+                     && chatDialog.activeTab === "chat"
+            peerUid: tcpMgr.chatStore.activeUid
+            peerName: tcpMgr.chatStore.activeName
+            connected: tcpMgr.chatReady
+            loadedCount: tcpMgr.chatStore.messages.length
+            canSend: tcpMgr.chatStore.activeCanSend
         }
     }
 

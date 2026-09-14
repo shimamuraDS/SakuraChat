@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 
-Button {
+SakuraButton {
     id: timerButton
 
     property int countdownTime: 60 // 倒计时时间（秒）
@@ -52,9 +52,9 @@ Button {
 
     // 样式
     background: Rectangle {
-        color: timerButton.enabled ? "#83ECF8" : "#CCCCCC"
-        radius: 5
-        border.color: timerButton.enabled ? "#1DDCC1" : "#AAAAAA"
+        color: timerButton.enabled ? UiTheme.selection : UiTheme.field
+        radius: UiTheme.corner
+        border.color: timerButton.enabled ? UiTheme.accent : UiTheme.muted
         border.width: 1
 
         // 悬浮
@@ -68,7 +68,7 @@ Button {
     contentItem: Text {
         text: timerButton.text
         font.pixelSize: 12
-        color: timerButton.enabled ? "black" : "#666666"
+        color: timerButton.enabled ? UiTheme.text : UiTheme.secondary
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         anchors.fill: parent

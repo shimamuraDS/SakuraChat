@@ -12,14 +12,14 @@ Rectangle {
     height: 26
     width: lbl.width + (closeable ? 42 : 18)
     radius: 13
-    color: selected ? "#2AABEE" : "#eef6ff"
-    border.color: selected ? "#2AABEE" : "#c8e4fb"
+    color: selected ? UiTheme.accent : UiTheme.field
+    border.color: selected ? UiTheme.accent : UiTheme.selection
 
     Text {
         id: lbl
         anchors { left: parent.left; leftMargin: 9; verticalCenter: parent.verticalCenter }
         text: chip.label
-        color: chip.selected ? "#ffffff" : "#2AABEE"
+        color: chip.selected ? UiTheme.text : UiTheme.accent
         font.pixelSize: 12
     }
 

@@ -5,13 +5,18 @@ import QtQuick.Controls 2.15
 Rectangle {
     id: root
     width: parent ? parent.width : 320
-    height: 64
-    color: mouseArea.containsMouse ? "#e8f4fd" : "#ffffff"
+    height: 72
+    radius: 10
+    property bool selected: false
+    color: selected ? UiTheme.selection : mouseArea.containsMouse ? UiTheme.hover : UiTheme.surface
+    border.width: selected ? 1 : 0
+    border.color: UiTheme.accent
 
     property string userName: ""
     property string headImg: ""
     property string lastMsg: ""
     property string msgTime: ""
+    property int unreadCount: 0
 
     readonly property bool isRealImage: headImg.startsWith("qrc:/") ||
                                         headImg.startsWith("http") ||
@@ -41,7 +46,7 @@ Rectangle {
             width: 48
             height: 48
             radius: 24
-            color: "#c8e6c9"
+            color: UiTheme.selection
             clip: true
             anchors.verticalCenter: parent.verticalCenter
 
@@ -58,7 +63,7 @@ Rectangle {
                 text: userName.length > 0 ? userName[0].toUpperCase() : "?"
                 font.pixelSize: 20
                 font.bold: true
-                color: "#ffffff"
+                color: UiTheme.text
                 visible: !isRealImage
             }
         }
@@ -78,7 +83,7 @@ Rectangle {
                     text: userName
                     font.pixelSize: 14
                     font.weight: Font.Medium
-                    color: "#000000"
+                    color: UiTheme.text
                     elide: Text.ElideRight
                     width: parent.width - timeLb.width - 8
                 }
@@ -87,7 +92,7 @@ Rectangle {
                     id: timeLb
                     text: msgTime
                     font.pixelSize: 12
-                    color: "#8c8c8c"
+                    color: UiTheme.muted
                 }
             }
 
@@ -95,20 +100,28 @@ Rectangle {
                 id: userChatLb
                 text: lastMsg
                 font.pixelSize: 12
-                color: "#999999"
+                color: UiTheme.muted
                 elide: Text.ElideRight
-                width: parent.width
+                width: parent.width - (root.unreadCount > 0 ? 34 : 0)
             }
         }
     }
 
     // 分隔线
     Rectangle {
+        visible: root.unreadCount > 0
+        anchors.right: parent.right; anchors.rightMargin: 12
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 12
+        width: root.unreadCount > 99 ? 30 : 22; height: 20; radius: 10
+        color: UiTheme.accent
+        Text { anchors.centerIn: parent; text: root.unreadCount > 99 ? "99+" : root.unreadCount; color: UiTheme.accentText; font.pixelSize: 10 }
+    }
+    Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.leftMargin: 72
         anchors.right: parent.right
         height: 1
-        color: "#f0f0f0"
+        color: UiTheme.canvas
     }
 }

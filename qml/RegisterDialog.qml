@@ -5,13 +5,13 @@ import SakuraChat
 
 Rectangle {
     id: registerDialog
-    radius: 12
-    color: "#fefefe"
-    border.color: "#dddddd"
+    radius: 0
+    color: UiTheme.canvas
+    border.color: UiTheme.border
     border.width: 1
     gradient: Gradient {
-        GradientStop { position: 0.0; color: "#e8f0fe" }
-        GradientStop { position: 1.0; color: "#ffffff" }
+        GradientStop { position: 0.0; color: UiTheme.canvas }
+        GradientStop { position: 1.0; color: UiTheme.surface }
     }
 
     property bool isLoading: false
@@ -22,7 +22,7 @@ Rectangle {
     // ─────────────────────────────────────────────────────────
     function showTip(message, isError = false) {
         errTip.text = message
-        errTip.color = isError ? "#F44336" : "#4CAF50"
+        errTip.color = isError ? UiTheme.danger : UiTheme.success
     }
 
     function validateEmailOnly() {
@@ -115,7 +115,7 @@ Rectangle {
         width: parent.width * 0.8
 
         // 返回按钮
-        Button {
+        SakuraButton {
             Layout.alignment: Qt.AlignLeft
             Layout.preferredWidth: 60
             Layout.preferredHeight: 30
@@ -124,7 +124,7 @@ Rectangle {
             contentItem: Text {
                 text: parent.text
                 font.pixelSize: 14
-                color: parent.hovered ? "#1DDCC1" : "#666666"
+                color: parent.hovered ? UiTheme.accent : UiTheme.secondary
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -134,10 +134,10 @@ Rectangle {
 
         Text {
             Layout.fillWidth: true
-            text: "用户注册"
+            text: "创建你的账号"
             font.pixelSize: 22
             font.bold: true
-            color: "#333333"
+            color: UiTheme.text
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -155,38 +155,30 @@ Rectangle {
         // 用户名
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Text { text: "用户名"; font.pixelSize: 14; color: "#666666" }
-            TextField {
+            Text { text: "用户名"; font.pixelSize: 14; color: UiTheme.secondary }
+            SakuraField {
                 id: regUsernameField
-                Layout.fillWidth: true; Layout.preferredHeight: 36
+                Layout.fillWidth: true; Layout.preferredHeight: 42
                 placeholderText: "请输入用户名"; font.pixelSize: 15
-                background: Rectangle {
-                    border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1; radius: 5; color: "#FAFAFA"
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
-                }
+
             }
         }
 
         // 邮箱与验证码按钮
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Text { text: "邮箱"; font.pixelSize: 14; color: "#666666" }
+            Text { text: "邮箱"; font.pixelSize: 14; color: UiTheme.secondary }
             RowLayout {
                 Layout.fillWidth: true; spacing: 10
-                TextField {
+                SakuraField {
                     id: emailField
-                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    Layout.fillWidth: true; Layout.preferredHeight: 42
                     placeholderText: "请输入邮箱"; font.pixelSize: 15
-                    background: Rectangle {
-                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1; radius: 5; color: "#FAFAFA"
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
-                    }
+
                 }
                 TimerButton {
                     id: timerButton
-                    Layout.preferredWidth: 90; Layout.preferredHeight: 36
+                    Layout.preferredWidth: 90; Layout.preferredHeight: 42
                     countdownTime: 60
                     normalText: "获取验证码"
                     onClicked: getVerifyCode()
@@ -197,35 +189,27 @@ Rectangle {
         // 验证码输入框
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Text { text: "验证码"; font.pixelSize: 14; color: "#666666" }
-            TextField {
+            Text { text: "验证码"; font.pixelSize: 14; color: UiTheme.secondary }
+            SakuraField {
                 id: verifyCodeField
-                Layout.fillWidth: true; Layout.preferredHeight: 36
+                Layout.fillWidth: true; Layout.preferredHeight: 42
                 placeholderText: "请输入验证码"; font.pixelSize: 15
-                background: Rectangle {
-                    border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                    border.width: 1; radius: 5; color: "#FAFAFA"
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
-                }
+
             }
         }
 
         // 密码输入框
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Text { text: "密码"; font.pixelSize: 14; color: "#666666" }
+            Text { text: "密码"; font.pixelSize: 14; color: UiTheme.secondary }
             RowLayout {
                 Layout.fillWidth: true; spacing: 5
-                TextField {
+                SakuraField {
                     id: regPasswordField
-                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    Layout.fillWidth: true; Layout.preferredHeight: 42
                     placeholderText: "请输入密码"; font.pixelSize: 15
                     echoMode: passwordVisible.checked ? TextInput.Normal : TextInput.Password
-                    background: Rectangle {
-                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1; radius: 5; color: "#FAFAFA"
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
-                    }
+
                 }
                 ClickableLabel {
                     id: passwordVisible
@@ -239,19 +223,15 @@ Rectangle {
         // 确认密码输入框
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Text { text: "确认密码"; font.pixelSize: 14; color: "#666666" }
+            Text { text: "确认密码"; font.pixelSize: 14; color: UiTheme.secondary }
             RowLayout {
                 Layout.fillWidth: true; spacing: 5
-                TextField {
+                SakuraField {
                     id: confirmPasswordField
-                    Layout.fillWidth: true; Layout.preferredHeight: 36
+                    Layout.fillWidth: true; Layout.preferredHeight: 42
                     placeholderText: "请再次输入密码"; font.pixelSize: 15
                     echoMode: confirmPasswordVisible.checked ? TextInput.Normal : TextInput.Password
-                    background: Rectangle {
-                        border.color: parent.activeFocus ? "#1DDCC1" : "#E0E0E0"
-                        border.width: 1; radius: 5; color: "#FAFAFA"
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
-                    }
+
                 }
                 ClickableLabel {
                     id: confirmPasswordVisible
@@ -263,7 +243,8 @@ Rectangle {
         }
 
         // 注册按钮
-        Button {
+        SakuraButton {
+            primary: true
             id: registerBtn
             Layout.fillWidth: true
             Layout.preferredHeight: 42
@@ -271,17 +252,13 @@ Rectangle {
             text: isLoading ? "注册中..." : "注 册"
             enabled: !isLoading
 
-            background: Rectangle {
-                color: registerBtn.pressed ? "#1DDCC0" : (registerBtn.hovered ? "#32E5CC" : "#1DDCC1")
-                radius: 5
-                Behavior on color { ColorAnimation { duration: 150 } }
-            }
+
 
             contentItem: Text {
                 text: registerBtn.text
                 font.pixelSize: 16
                 font.bold: true
-                color: "#ffffff"
+                color: UiTheme.text
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }

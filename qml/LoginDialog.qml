@@ -5,17 +5,17 @@ import SakuraChat
 
 Rectangle {
     id: loginDialog
-    radius: 16
-    border.color: "#ebebeb"
+    radius: 0
+    border.color: UiTheme.border
     border.width: 1
     gradient: Gradient {
         GradientStop {
             position: 0.0;
-            color: "#f0f8ff"
+            color: UiTheme.canvas
         }
         GradientStop {
             position: 1.0;
-            color: "#ffffff"
+            color: UiTheme.surface
         }
     }
 
@@ -36,7 +36,7 @@ Rectangle {
     // 显示提示信息
     function showTip(message, success) {
         err_tip.text = message;
-        err_tip.color = success ? "#10b981" : "#ef4444";
+        err_tip.color = success ? UiTheme.success : UiTheme.danger;
         tipTimer.restart();
     }
 
@@ -131,35 +131,46 @@ Rectangle {
 
         // Logo
         Item {
-            Layout.preferredHeight: 100
+            Layout.preferredHeight: 68
             Layout.fillWidth: true
 
-            Image {
+            Rectangle {
                 anchors.centerIn: parent
-                source: "qrc:/res/SakuraChat.png"
-                width: 72
-                height: 72
-                fillMode: Image.PreserveAspectFit
-                smooth: true
+                width: 56
+                height: 56
+                radius: 12
+                gradient: Gradient {
+                    GradientStop { position: 0; color: UiTheme.accentHover }
+                    GradientStop { position: 1; color: UiTheme.accent }
+                }
+                Image { anchors.fill: parent; source: "qrc:/res/sakura-mark.png"; mipmap: true; fillMode: Image.PreserveAspectFit }
             }
         }
 
         // 标题
         Text {
-            text: "SakuraChat"
+            text: qsTr("登录工作区")
             Layout.fillWidth: true
             font.pixelSize: 24
             font.bold: true
-            color: "#222222"
+            color: UiTheme.text
             horizontalAlignment: Text.AlignHCenter
-            font.letterSpacing: 2
+            font.letterSpacing: 0.5
+        }
+
+        Text {
+            text: qsTr("使用你的账号，继续对话。")
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            color: UiTheme.muted
+            font.pixelSize: 13
         }
 
         Text {
             id: err_tip
             Layout.fillWidth: true
             Layout.preferredHeight: 20
-            color: "red"
+            color: UiTheme.danger
             visible: text !== ""
             horizontalAlignment: Text.AlignHCenter
             font.pixelSize: 13
@@ -173,25 +184,20 @@ Rectangle {
             Text {
                 text: "邮箱"
                 font.pixelSize: 14
-                color: "#555555"
+                color: UiTheme.secondary
             }
 
-            TextField {
+            SakuraField {
                 id: emailField
                 placeholderText: "请输入邮箱"
                 Layout.fillWidth: true
-                Layout.preferredHeight: 30
+                Layout.preferredHeight: 42
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
 
                 font.pixelSize: 16
 
-                background: Rectangle {
-                    radius: 6
-                    color: "#f9f9f9"
-                    border.color: emailField.activeFocus ? "#1DDCC1" : "#cccccc"
-                    border.width: 1
-                }
+
             }
         }
 
@@ -203,26 +209,21 @@ Rectangle {
             Text {
                 text: "密码"
                 font.pixelSize: 14
-                color: "#555555"
+                color: UiTheme.secondary
             }
 
-            TextField {
+            SakuraField {
                 id: passwordField
                 echoMode: TextInput.Password
                 placeholderText: "请输入密码"
                 Layout.fillWidth: true
-                Layout.preferredHeight: 30
+                Layout.preferredHeight: 42
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
 
                 font.pixelSize: 16
 
-                background: Rectangle {
-                    radius: 6
-                    color: "#f9f9f9"
-                    border.color: passwordField.activeFocus ? "#1DDCC1" : "#cccccc"
-                    border.width: 1
-                }
+
             }
         }
 
@@ -230,7 +231,7 @@ Rectangle {
         Text {
             id: forgetLabel
             text: "忘记密码?"
-            color: "#1976d2"
+            color: UiTheme.accentPressed
             font.pixelSize: 12
             Layout.alignment: Qt.AlignRight
 
@@ -240,11 +241,11 @@ Rectangle {
                 hoverEnabled: true
 
                 onEntered: {
-                    forgetLabel.color = "#1565c0"
+                    forgetLabel.color = UiTheme.accentPressed
                     forgetLabel.font.underline = true
                 }
                 onExited: {
-                    forgetLabel.color = "#1976d2"
+                    forgetLabel.color = UiTheme.accentPressed
                     forgetLabel.font.underline = false
                 }
                 onClicked: {
@@ -259,22 +260,20 @@ Rectangle {
         }
 
         // 登录按钮
-        Button {
+        SakuraButton {
+            primary: true
             id: loginBtn
             Layout.fillWidth: true
-            Layout.preferredHeight: 38
+            Layout.preferredHeight: 44
             text: "登录"
 
-            background: Rectangle {
-                color: loginBtn.pressed ? "#1DDCC0" : "#1DDCC1"
-                radius: 6
-            }
+
 
             contentItem: Text {
                 text: loginBtn.text
                 font.pixelSize: 16
                 font.bold: true
-                color: "#ffffff"
+                color: UiTheme.text
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
@@ -285,23 +284,18 @@ Rectangle {
         }
 
         // 注册按钮
-        Button {
+        SakuraButton {
             id: regBtn
             Layout.fillWidth: true
-            Layout.preferredHeight: 36
+            Layout.preferredHeight: 42
             text: "注册"
 
-            background: Rectangle {
-                color: "transparent"
-                border.color: "#1DDCC1"
-                border.width: 1
-                radius: 6
-            }
+
 
             contentItem: Text {
                 text: regBtn.text
                 font.pixelSize: 14
-                color: "#1DDCC1"
+                color: UiTheme.accent
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }

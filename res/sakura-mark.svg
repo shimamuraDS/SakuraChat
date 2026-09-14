@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="wing" x1="24" y1="24" x2="103" y2="99" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8ae6f5"/>
+      <stop offset=".48" stop-color="#52bfea"/>
+      <stop offset="1" stop-color="#368ddd"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="124" height="124" rx="29" fill="#0e1723"/>
+  <rect x="3" y="3" width="122" height="122" rx="28" fill="none" stroke="#26364a" stroke-width="2"/>
+  <!-- One folded wing forms the upper speech edge; the lower return creates its tail. -->
+  <path d="M25 53 74 25 105 42 65 61 92 75 68 91 48 91 29 105 34 80 62 80 75 73 25 53Z" fill="url(#wing)"/>
+  <path d="m42 52 32-18 15 8-31 15Z" fill="#0e1723"/>
+  <path d="m62 61 19-9 12 6-15 4Z" fill="#b6f2fa"/>
+</svg>

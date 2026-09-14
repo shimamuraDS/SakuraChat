@@ -58,7 +58,7 @@ Item {
         id: listView
         anchors.fill: parent
         clip: true
-        spacing: 4
+        spacing: 2
         model: root.messageRows
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         onMovementEnded: {
@@ -71,7 +71,7 @@ Item {
                 root.followTail = atYEnd
             }
         }
-        header: Button {
+        header: SakuraButton {
             width: listView.width
             visible: root.hasOlder
             height: visible ? implicitHeight : 0
@@ -95,8 +95,8 @@ Item {
             timestamp: modelData.timestamp || ""
             statusText: root.stateText(modelData.status)
             expiryText: modelData.expiryText || ""
-            statusColor: modelData.status === "failed" ? "#d14343"
-                         : modelData.status === "read" ? "#2b9af3" : "#8a8a8a"
+            statusColor: modelData.status === "failed" ? UiTheme.danger
+                         : modelData.status === "read" ? UiTheme.accent : UiTheme.muted
             retryAvailable: modelData.isSentByMe &&
                             (modelData.status === "failed" || modelData.status === "unknown")
             onRetryRequested: root.retryMessage(modelData.msgid)

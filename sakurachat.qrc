@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/">
+        <file>res/sakura-mark.png</file>
+        <file>res/sakura-mark.ico</file>
         <file>SakuraChat.ico</file>
         <file>res/SakuraChat.png</file>
         <file>res/unvisible.png</file>

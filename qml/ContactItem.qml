@@ -16,7 +16,7 @@ Item {
     // 悬浮背景
     Rectangle {
         anchors.fill: parent
-        color: mouseArea.containsMouse ? "#e8f4fd" : "transparent"
+        color: mouseArea.containsMouse ? UiTheme.hover : "transparent"
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 
@@ -29,7 +29,7 @@ Item {
             bottom: parent.bottom
         }
         height: 1
-        color: "#ede9e7"
+        color: UiTheme.border
     }
 
     RowLayout {
@@ -56,7 +56,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: contactHead.length > 0 ? contactHead[0].toUpperCase() : "?"
-                color: "white"
+                color: UiTheme.text
                 font { pixelSize: 16; bold: true }
             }
         }
@@ -65,7 +65,7 @@ Item {
         Text {
             Layout.fillWidth: true
             text: contactName
-            color: "#000000"
+            color: UiTheme.text
             font { pixelSize: 14; family: "Microsoft YaHei" }
             elide: Text.ElideRight
         }

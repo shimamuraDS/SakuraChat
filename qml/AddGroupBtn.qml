@@ -11,12 +11,12 @@ AbstractButton {
         anchors.fill: parent
         radius: 18
         color: {
-            if (root.pressed) return "#1a94e0"
-            if (root.hovered) return "#2b9af3"
+            if (root.pressed) return UiTheme.accent
+            if (root.hovered) return UiTheme.accent
             return "transparent"
         }
         border.width: 1.5
-        border.color: (root.pressed || root.hovered) ? "transparent" : "#b0b8c1"
+        border.color: (root.pressed || root.hovered) ? "transparent" : UiTheme.muted
 
         Behavior on color {
             ColorAnimation { duration: 120 }
@@ -27,7 +27,7 @@ AbstractButton {
             text: "+"
             font.pixelSize: 20
             font.weight: Font.Light
-            color: (root.pressed || root.hovered) ? "#ffffff" : "#707070"
+            color: (root.pressed || root.hovered) ? UiTheme.text : UiTheme.secondary
 
             Behavior on color {
                 ColorAnimation { duration: 120 }

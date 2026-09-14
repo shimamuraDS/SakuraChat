@@ -18,11 +18,24 @@ qt_add_executable(appSakuraChat
     main.cpp sakurachat.qrc
 )
 
+set_source_files_properties(qml/UiTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
 qt_add_qml_module(appSakuraChat
     URI SakuraChat
     VERSION 1.0
     QML_FILES
+        qml/LanChatPage.qml
+        qml/UiTheme.qml
+        qml/AuthPanel.qml
+        qml/ConversationInfo.qml
         qml/Main.qml
+        qml/WindowTitleBar.qml
+        qml/SakuraButton.qml
+        qml/SakuraField.qml
+        qml/SakuraDialog.qml
+        qml/SakuraComboBox.qml
+        qml/SakuraIcon.qml
+        qml/SakuraCheckBox.qml
         qml/LoginDialog.qml
         qml/RegisterDialog.qml
         qml/ClickableLabel.qml
@@ -47,6 +60,8 @@ qt_add_qml_module(appSakuraChat
         qml/ApplyFriendPage.qml
         qml/ReviewFriendApplication.qml
     SOURCES
+        src/lanchat.h
+        src/lanchat.cpp
         src/applock.h
         src/applock.cpp
         src/localprotection.h
@@ -94,7 +109,7 @@ qt_add_qml_module(appSakuraChat
 )
 
 if(WIN32)
-    target_link_libraries(appSakuraChat PRIVATE crypt32)
+    target_link_libraries(appSakuraChat PRIVATE crypt32 dwmapi)
     set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/icon.rc")
     target_sources(appSakuraChat PRIVATE ${APP_ICON_RESOURCE_WINDOWS})
 endif()
@@ -125,6 +140,9 @@ target_link_libraries(appSakuraChat
         Qt6::Qml
 )
 include(GNUInstallDirs)
+add_executable(lanchat_tests EXCLUDE_FROM_ALL tests/lanchat_tests.cpp src/lanchat.cpp src/lanchat.h)
+target_include_directories(lanchat_tests PRIVATE src)
+target_link_libraries(lanchat_tests PRIVATE Qt6::Core Qt6::Network)
 install(TARGETS appSakuraChat
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
