@@ -31,6 +31,9 @@ try {
     Copy-Item -LiteralPath "$BuildDirectory/appSakuraChat.exe", "$project/crypto/signal-bridge/target/release/sakura_signal_bridge.dll" -Destination $stage
     & "$QtBin/windeployqt.exe" --release --no-translations --no-opengl-sw --no-system-d3d-compiler --skip-plugin-types platforminputcontexts,qmltooling,sqldrivers --qmldir "$project/qml" --compiler-runtime "$stage/appSakuraChat.exe"
     if ($LASTEXITCODE -ne 0) { throw 'Qt deployment failed' }
+    # windeployqt may omit this plugin when OpenSSL is supplied after Qt deployment.
+    # LAN TLS hosting requires the OpenSSL backend, not just Windows Schannel.
+    Copy-Item -LiteralPath "$QtBin/../plugins/tls/qopensslbackend.dll" -Destination "$stage/tls"
     $null = New-Item -ItemType Directory -Path "$stage/sqldrivers"
     Copy-Item -LiteralPath "$QtBin/../plugins/sqldrivers/qsqlite.dll" -Destination "$stage/sqldrivers"
     foreach ($file in 'openssl.exe','libssl-3-x64.dll','libcrypto-3-x64.dll') {
