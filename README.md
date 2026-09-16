@@ -1,134 +1,32 @@
-# 🌸 SakuraChat 
+# SakuraChat
 
-![Qt Version](https://img.shields.io/badge/Qt-6.8-41CD52?logo=qt&logoColor=white)
-![C++](https://img.shields.io/badge/C++-17%2B-00599C?logo=c%2B%2B&logoColor=white)
-![CMake](https://img.shields.io/badge/CMake-3.16%2B-064F8C?logo=cmake&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
+Qt 6.8 / C++ / QML 桌面聊天客户端，包含云端聊天、加密局域网房间和基于 Signal 协议的隐私对话。三种模式的数据与安全边界不同，详见功能文档。
 
-SakuraChat 是一个基于 **Qt 6.8 (C++ & QML)** 构建的现代即时通讯应用。项目采用极致的前后端分离架构，通过 QML 实现媲美原生应用的现代化 UI 与流畅交互，底层依托 C++ 提供高性能的网络通信与数据处理能力。
+## 目录
 
-## 聊天持久化更新（2026-09-12）
+- `src/`：网络、控制器、数据模型与本地存储；`src/privatechat/` 为独立隐私聊天模块。
+- `qml/`：界面和交互组件；`res/`：图片等资源。
+- `crypto/signal-bridge/`：固定版本 libsignal 的 Rust 桥接及协议测试。
+- `tests/`：C++ / QML 测试；`tools/`：构建、测试和打包脚本。
+- `cmake/`、`release/`：发布配置与安装器模板。
+- `docs/`：功能与开发文档。
+- `build/`：本地构建输出，不提交。
 
-新增按账号隔离的 SQLite 缓存、服务端历史补拉、发送重试和已读回执，以及面向用户的中文消息状态。客户端需与协议版本 2 的 ChatServer 一起升级。
+## 构建
 
-部署、使用方式和实现边界见仓库内的 [聊天记录与已读状态说明](docs/CHAT_HISTORY_READ_RECEIPTS.md)。已完成编译检查，未运行应用或测试，未执行数据库脚本。
+使用 Qt Creator 打开 `CMakeLists.txt`，选择 Qt 6.8.3 MinGW 64-bit Kit。隐私聊天还需要 Rust MSVC 工具链和构建好的 Signal 桥接，步骤见 [隐私聊天](docs/PRIVATE_CHAT.md) 与 `tools/build-private-chat.ps1`。
 
-## 历史开发进度（2026-09-08，仅记录当时状态）
+开发环境读取 `config.ini`；不要将生产凭据或私钥写入版本库。正式分发使用单独的 Release 配置，见 [打包与版本提示](docs/RELEASE.md)。客户端只检查 GitHub Releases 并提示，不自动下载安装。
 
-客户端基线 7fc7faf。用户搜索、申请弹窗、审核弹窗、离线申请快照、按 applyId 去重的列表和待处理红点已有代码；本次只静态核对，未构建或测试。
+## 功能文档
 
-- ApplyFriendPage 使用 import SakuraChat，并在页面根对象声明审核弹窗实例。
-- CMake 中 ReviewFriendApplication.qml 只登记一次；重复会导致 QML 缓存 unit 重定义。修改配置后重新运行 CMake，不编辑生成的 loader。
-- 断线 pending 复位尚未接入；实时状态尚未回写登录快照。联系人同步与真实聊天不能视为已完成。
-- 服务端仍有 ChatServer1 申请处理器缺失和跨节点审核客户端空实现等缺口，详见 [好友功能当前状态](../docs/FRIEND_FEATURE_STATUS.md)。
-- 操作位置及完整示例：[好友查询与申请教程](../docs/FRIEND_SEARCH_AND_APPLICATION_QML_TUTORIAL.md)。
+- [聊天记录与已读回执](docs/CHAT_HISTORY_READ_RECEIPTS.md)
+- [局域网聊天](docs/LAN_CHAT.md) · [Signal 隐私聊天](docs/PRIVATE_CHAT.md)
+- [安全与隐私](docs/SECURITY_PRIVACY.md) · [应用锁](docs/APP_LOCK.md)
+- [本地缓存保护](docs/LOCAL_CACHE_PROTECTION.md) · [消息删除](docs/MESSAGE_DELETION.md)
+- [通知隐私](docs/PRIVATE_NOTIFICATIONS.md) · [界面设计](docs/UI_REFRESH.md)
+- [开发学习笔记](docs/DEVELOPMENT.md)
 
-根目录 docs 不属于客户端 Git 仓库；上述相对链接在完整工作区有效，单独克隆客户端不会包含这些文档。
+服务端与跨端教程位于 [SakuraChatServer](https://github.com/shimamuraDS/SakuraChatServer)，教程目录为 `docs/project/`。早期学习笔记不是当前功能验收清单。
 
-## ✨ 核心特性
-
-### 🎨 现代化的用户体验 (UI/UX)
-* **Telegram 视觉风格**：深蓝侧边栏 + 白色面板 + 浅蓝灰气泡，提供干净、专业的视觉体验。
-* **声明式流畅动画**：广泛使用 `Behavior` 与状态机实现平滑的颜色过渡、按钮缩放与悬浮反馈，无需繁琐的 C++ 重写。
-* **实时表单验证机制**：内置于 QML 的智能表单系统，支持输入防抖、正则表达式校验、密码强度检测，并提供友好的动态错误提示。
-* **自定义精美组件**：高度定制的滚动条、带动画的倒计时按钮（验证码功能）、自适应消息气泡及状态切换标签。
-
-### ⚡ 纯粹的 Qt 6 现代架构
-* **告别手动注册**：全面拥抱 `QML_ELEMENT` 与 `QML_SINGLETON` 宏，利用 CMake 的 `qt_add_qml_module` 实现 C++ 与 QML 类型的自动扫描与注册。
-* **彻底的关注点分离**：完全摒弃传统 Qt Widgets 的强耦合。C++ 专职处理 TCP/HTTP 通信与状态机，QML 专职处理渲染与交互。
-* **单例配置管理**：引入线程安全的 `ConfigManager` 全局配置管理器，杜绝全局变量滥用。
-
-### 🌐 健壮的网络与通信机制
-* **HTTP/TCP 双链路协同**：HTTP 用于高并发的注册/登录/重置鉴权，TCP 长连接保障低延迟的即时消息推送。
-* **异步与线程安全**：基于 `HttpMgr` 的非阻塞网络请求与 `TcpMgr` 的 QTcpSocket 收发；当前没有独立的业务发送队列，不应据此宣称任意线程调用均安全。
-
-## 📸 界面预览
-
-> **[TODO: 在此处放置 2-3 张项目的截图，例如：登录/注册界面、聊天主界面等]**
-> *示例：`![聊天界面](docs/images/chat_preview.png)`*
-
-## 🏗️ 架构概览
-
-### 网络通信时序 (登录到聊天)
-```text
-[QML 登录界面]             [C++ LoginController]           [C++ TcpMgr]
-      |                             |                           |
-      | 1. 发起登录 (HTTP)          |                           |
-      |---------------------------->|                           |
-      |                             | 2. HTTP 请求鉴权          |
-      | 3. HTTP 登录成功反馈        |-------------------------> [Gate Server]
-      |<----------------------------|                           |
-      |                             |                           |
-      |                             | 4. 触发 TCP 连接          |
-      |                             |-------------------------> [Chat Server]
-      |                             |                           |
-      |                             | 5. TCP 连接成功           |
-      |                             |<--------------------------|
-      |                             |                           |
-      |                             | 6. 发送 Chat Token (TCP)  |
-      |                             |-------------------------> [Chat Server]
-      | 7. 切换至聊天界面 (ChatDialog)|                           |
-      |<--------------------------------------------------------|
-````
-
-## 🚀 快速开始
-
-### 前置依赖
-
-  * [Qt 6.8](https://www.qt.io/download) 或更高版本 (需安装 Qt Quick 模块)
-  * [CMake 3.16](https://cmake.org/download/) 或更高版本
-  * 支持 C++17 的编译器 (MSVC / GCC / Clang)
-
-### 编译与运行
-
-```bash
-# 1. 克隆仓库
-git clone [https://github.com/yourusername/SakuraChat.git](https://github.com/yourusername/SakuraChat.git)
-cd SakuraChat
-
-# 2. 创建构建目录
-mkdir build && cd build
-
-# 3. 生成构建文件并编译
-cmake ..
-cmake --build .
-
-# 4. 运行应用
-./appSakuraChat
-```
-
-*注：在 Windows Release 模式下，CMake 会自动将 `config.ini` 拷贝到输出目录。*
-
-## 📁 核心目录结构
-
-```text
-SakuraChat/
-├── CMakeLists.txt         # 现代 Qt6 QML 模块化构建配置
-├── config.ini             # 全局网络及网关配置文件
-├── src/                   # C++ 后端核心逻辑
-│   ├── httpmgr.* # HTTP 异步通信层
-│   ├── tcpmgr.* # TCP 长连接与消息处理层
-│   ├── *controller.* # 业务控制器 (登录/注册/重置)
-│   ├── chatuserlist.* # 聊天用户列表 Model (QAbstractListModel)
-│   └── configmanager.* # 配置项解析与管理
-└── qml/                   # QML 前端界面
-    ├── Main.qml           # 全局路由与窗口管理
-    ├── *Dialog.qml        # 核心功能视图 (登录/注册/重置/聊天)
-    ├── MessageBubble.qml  # 自定义消息气泡组件
-    ├── TimerButton.qml    # 自定义倒计时按钮 (验证码)
-    └── ...                # 其他自定义 UI 组件
-```
-
-## 🤝 贡献指南
-
-欢迎提交 Pull Request 或 Issue 探讨问题！
-
-1.  Fork 本项目
-2.  创建您的特性分支 (`git checkout -b feature/AmazingFeature`)
-3.  提交您的更改 (`git commit -m 'Add some AmazingFeature'`)
-4.  推送到分支 (`git push origin feature/AmazingFeature`)
-5.  开启一个 Pull Request
-
-## 📄 许可证
-
-本项目采用 [MIT License](https://www.google.com/search?q=LICENSE) 开源协议。
+分发前需核对 Qt、libsignal 等依赖的许可证及对应源码义务，不能仅以客户端代码的许可推断整个安装包许可。

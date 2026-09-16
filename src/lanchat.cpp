@@ -74,7 +74,13 @@ void LanChat::host(const QString &name, int port) {
     }
     if (!QSslSocket::supportsSsl()) { status("idle", tr("TLS 不可用，请安装 Qt TLS 运行库。")); return; }
     auto openssl = QCoreApplication::applicationDirPath() + "/openssl.exe";
-    if (!QFileInfo::exists(openssl)) openssl = QStandardPaths::findExecutable("openssl");
+    if (!QFileInfo::exists(openssl)) {
+#ifdef SAKURA_PACKAGED
+        status("idle", tr("缺少局域网加密组件，请重新安装完整客户端。")); return;
+#else
+        openssl = QStandardPaths::findExecutable("openssl");
+#endif
+    }
     QProcess generator;
     generator.start(openssl, {"req", "-config", "-", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256",
                              "-nodes", "-keyout", "-", "-out", "-", "-days", "1", "-subj", "/CN=SakuraChat LAN",

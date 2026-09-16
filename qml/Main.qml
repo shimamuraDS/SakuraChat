@@ -25,23 +25,49 @@ ApplicationWindow {
     palette.highlight: UiTheme.accent
     palette.highlightedText: UiTheme.text
     header: WindowTitleBar {
+        updatesVisible: true
         window: root
+        onUpdateRequested: updateDialog.open()
+        updateAvailable: updater.updateAvailable
         modeSwitchVisible: !appLock.locked
+        privateModeAvailable: root.currentView === "chat"
         conversationMode: root.conversationMode
         onModeRequested: function(mode) {
             if (mode === root.conversationMode) return
-            if (mode === "default") lanChat.leave()
+            if (mode !== "lan") lanChat.leave()
             root.conversationMode = mode
             if (mode === "lan") { root.width = Math.max(root.width, 1000); root.height = Math.max(root.height, 700) }
         }
         caption: root.currentView === "chat" ? "sakura / workspace" : "sakura / sign in"
-        navigationVisible: root.conversationMode === "default" && root.currentView === "chat" && !appLock.locked
+        navigationVisible: root.conversationMode !== "lan" && root.currentView === "chat" && !appLock.locked
         activeAction: chatPage.privacyOpen ? "privacy" : lockSettings.visible ? "lock" : ""
         refreshAvailable: tcpMgr.chatReady && !tcpMgr.friendSyncBusy
         refreshing: tcpMgr.friendSyncBusy
         onUtilityRequested: function(action) { chatPage.triggerUtility(action) }
     }
 
+    SakuraDialog {
+        id: updateDialog
+        title: qsTr("版本与更新")
+        anchors.centerIn: parent; width: Math.min(520, root.width - 40)
+        modal: true; standardButtons: Dialog.Close
+        contentItem: ColumnLayout {
+            Label { text: "SakuraChat " + updater.version; font.pixelSize: 20; color: UiTheme.text }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: updater.status; color: updater.updateAvailable ? UiTheme.cyan : UiTheme.secondary }
+            ScrollView {
+                Layout.fillWidth: true; Layout.preferredHeight: Math.min(200, releaseNotes.implicitHeight + 12)
+                visible: updater.updateAvailable && updater.notes.length > 0
+                contentWidth: availableWidth; clip: true
+                TextArea { id: releaseNotes; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; textFormat: TextEdit.PlainText; text: updater.notes; color: UiTheme.secondary }
+            }
+            SakuraCheckBox { text: qsTr("每天检查新版本"); checked: updater.automaticChecks; onToggled: updater.automaticChecks = checked }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("只检查版本，不自动下载或安装。检查失败不会影响聊天。"); color: UiTheme.muted; font.pixelSize: 12 }
+            RowLayout {
+                SakuraButton { text: updater.busy ? qsTr("正在检查…") : qsTr("检查更新"); enabled: !updater.busy; onClicked: updater.check() }
+                SakuraButton { text: updater.updateAvailable ? qsTr("前往 GitHub 下载") : qsTr("查看发布页面"); primary: updater.updateAvailable; onClicked: updater.openReleasePage() }
+            }
+        }
+    }
     // Let the OS own resize gestures; do not manually update window geometry.
     Repeater {
         model: [Qt.LeftEdge, Qt.RightEdge, Qt.TopEdge, Qt.BottomEdge,
@@ -76,6 +102,10 @@ ApplicationWindow {
     // 界面状态：login | register | reset | chat
     property string currentView: "login"
     property string conversationMode: "default"
+    onConversationModeChanged: {
+        UiTheme.privateMode = conversationMode === "private"
+        privateChat.setActive(conversationMode === "private" && !appLock.locked)
+    }
     Shortcut {
         sequence: "Ctrl+L"
         enabled: root.currentView === "chat" && appLock.enabled && !appLock.locked
@@ -111,6 +141,7 @@ ApplicationWindow {
             root.currentView = "chat"
         }
         function onLoggedOut() {
+            root.conversationMode = "default"
             lockSettings.close()
             disableLockDialog.close()
             root.currentView = "login"
@@ -128,7 +159,7 @@ ApplicationWindow {
         id: stackLayout
         anchors.fill: parent
         anchors.leftMargin: root.currentView === "chat" ? 0 : Math.min(340, root.width * 0.39)
-        visible: root.conversationMode === "default" && !appLock.locked
+        visible: root.conversationMode !== "lan" && !appLock.locked
         enabled: visible
 
         // 根据 currentView 属性动态返回对应的子页面索引
@@ -167,6 +198,7 @@ ApplicationWindow {
         // Index 3: 聊天主界面
         ChatDialog {
             id: chatPage
+            privateMode: root.conversationMode === "private"
             onLogoutRequested: TcpMgr.logout()
             onLockSettingsRequested: lockSettings.open()
         }
@@ -177,6 +209,7 @@ ApplicationWindow {
         visible: root.conversationMode === "lan" && !appLock.locked
         enabled: visible
     }
+
 
     SakuraDialog {
         id: lockSettings
@@ -245,6 +278,7 @@ ApplicationWindow {
     Connections {
         target: appLock
         function onChanged() {
+            privateChat.setActive(root.conversationMode === "private" && !appLock.locked)
             if (appLock.locked) { disableLockDialog.close(); lockSettings.close(); lockScreen.open() }
             else lockScreen.close()
         }

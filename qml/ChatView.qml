@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import SakuraChat
 
 Item {
     id: root
@@ -22,6 +23,8 @@ Item {
 
     function stateText(status) {
         switch (status) {
+        case "private_sent": return qsTr("服务器已接收")
+        case "private_pending": return qsTr("等待提交")
         case "pending": return qsTr("发送中…")
         case "accepted": return qsTr("已发送 · 未读")
         case "delivered": return qsTr("已送达 · 未读")
@@ -51,15 +54,20 @@ Item {
         previousTail = key
         savedY = listView.contentY
     }
-    onMessageRowsChanged: Qt.callLater(reconcileScroll)
     onConversationUidChanged: Qt.callLater(reconcileScroll)
+
+    MessageListModel {
+        id: stableMessages
+        rows: root.messageRows
+        onRowsChanged: Qt.callLater(root.reconcileScroll)
+    }
 
     ListView {
         id: listView
         anchors.fill: parent
         clip: true
         spacing: 2
-        model: root.messageRows
+        model: stableMessages
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         onMovementEnded: {
             root.savedY = contentY

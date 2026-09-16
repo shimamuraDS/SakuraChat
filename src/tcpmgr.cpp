@@ -123,7 +123,7 @@ void TcpMgr::initHandlers() {
         }
         UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
         UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
-        UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
+        UserMgr::GetInstance()->SetToken(_connectingToken);
 
         QVariantList applications;
         const auto array = jsonObj["apply_list"].toArray();
@@ -152,6 +152,7 @@ void TcpMgr::initHandlers() {
         _syncTimer.start();
         _nextSweep = 0;
         refreshFriends();
+        emit sessionAuthenticated(_connectingUid, _connectingToken);
         emit sig_switch_chatlg();
         pumpSync();
     });
@@ -303,6 +304,7 @@ void TcpMgr::slot_tcp_connect(ServerInfo si) {
 
     _host = si.Host;
     _connectingUid = si.Uid;
+    _connectingToken = si.Token;
     _intentionalDisconnect = false;
     _port = static_cast<uint16_t>(si.Port.toUInt());
     if (ConfigManager::instance().development()) {
@@ -625,7 +627,7 @@ void TcpMgr::logout() {
     handleTransportLoss(); _chatStore->endAccount();
     _friendApplySnapshot.clear(); emit friendApplySnapshotChanged();
     auto user = UserMgr::GetInstance(); user->SetUid(0); user->SetName({}); user->SetToken({});
-    _connectingUid = 0; emit loggedOut();
+    _connectingUid = 0; _connectingToken.clear(); emit loggedOut();
     _intentionalDisconnect = false;
 }
 void TcpMgr::setConversationVisible(bool visible) { _conversationVisible = visible; }

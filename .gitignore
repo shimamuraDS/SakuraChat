@@ -81,3 +81,5 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
+/release-output/
+/release/settings.local.json

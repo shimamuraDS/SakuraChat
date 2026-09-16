@@ -11,10 +11,14 @@ Rectangle {
     property string activeAction: ""
     property bool refreshAvailable: false
     property bool refreshing: false
+    property bool updateAvailable: false
+    property bool updatesVisible: false
     property bool modeSwitchVisible: false
+    property bool privateModeAvailable: false
     property string conversationMode: "default"
     signal modeRequested(string mode)
     signal utilityRequested(string action)
+    signal updateRequested()
     implicitHeight: navigationVisible ? 64 : 44
     color: UiTheme.rail
 
@@ -47,7 +51,7 @@ Rectangle {
         SakuraButton {
             id: modeButton
             visible: bar.modeSwitchVisible
-            text: bar.conversationMode === "lan" ? qsTr("局域网对话") : qsTr("默认对话")
+            text: bar.conversationMode === "lan" ? qsTr("局域网对话") : bar.conversationMode === "private" ? qsTr("隐私对话") : qsTr("默认对话")
             width: 154; height: 34
             anchors.verticalCenter: parent.verticalCenter
             Accessible.name: qsTr("切换对话模式：") + text
@@ -59,7 +63,7 @@ Rectangle {
             }
             contentItem: RowLayout {
                 spacing: 8
-                SakuraIcon { name: bar.conversationMode === "lan" ? "network" : "cloud"; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
+                SakuraIcon { name: bar.conversationMode === "lan" ? "network" : bar.conversationMode === "private" ? "lock" : "cloud"; Layout.preferredWidth: 18; Layout.preferredHeight: 18 }
                 Text { text: modeButton.text; color: UiTheme.text; font.pixelSize: 12; Layout.fillWidth: true }
                 Text { text: "⌄"; color: UiTheme.secondary; font.pixelSize: 16
                     rotation: modeMenu.visible ? 180 : 0
@@ -80,7 +84,7 @@ Rectangle {
                 exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 90 } }
                 ModeOption { text: qsTr("默认对话"); detail: qsTr("云端账号 · 同步聊天"); iconName: "cloud"; modeKey: "default" }
                 ModeOption { text: qsTr("局域网对话"); detail: qsTr("同一网络 · 直接加入房间"); iconName: "network"; modeKey: "lan" }
-                ModeOption { text: qsTr("隐私对话"); detail: qsTr("暂未开放"); iconName: "lock"; modeKey: "private"; enabled: false }
+                ModeOption { text: qsTr("隐私对话"); detail: bar.privateModeAvailable ? qsTr("Signal 协议 · 核验安全码") : qsTr("请先登录云端账号"); iconName: "lock"; modeKey: "private"; enabled: bar.privateModeAvailable }
             }
         }
     }
@@ -175,6 +179,14 @@ Rectangle {
     Row {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
+        SakuraButton {
+            visible: bar.updatesVisible
+            width: 36; height: bar.height
+            text: "↓"; Accessible.name: qsTr("版本与更新")
+            ToolTip.visible: hovered; ToolTip.text: bar.updateAvailable ? qsTr("有新版本可用") : qsTr("版本与更新")
+            Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; width: 6; height: 6; radius: 3; color: UiTheme.accent; visible: bar.updateAvailable }
+            onClicked: bar.updateRequested()
+        }
         Repeater {
             model: [qsTr("最小化"), qsTr("最大化 / 还原"), qsTr("关闭")]
             delegate: SakuraButton {

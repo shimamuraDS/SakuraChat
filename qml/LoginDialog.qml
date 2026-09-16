@@ -149,17 +149,17 @@ Rectangle {
 
         // 标题
         Text {
-            text: qsTr("登录工作区")
+            text: qsTr("欢迎回来")
             Layout.fillWidth: true
             font.pixelSize: 24
-            font.bold: true
+            font.weight: Font.DemiBold
             color: UiTheme.text
             horizontalAlignment: Text.AlignHCenter
             font.letterSpacing: 0.5
         }
 
         Text {
-            text: qsTr("使用你的账号，继续对话。")
+            text: qsTr("从这里，接上未完的对话。")
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
             color: UiTheme.muted

@@ -105,6 +105,7 @@ private:
     QString _syncRequest, _syncCursor, _conversationCursor = "0";
     ReqId _syncKind = ID_CHAT_HISTORY_REQ;
     int _syncPeer = 0, _statusOffset = 0, _connectingUid = 0;
+    QString _connectingToken;
     qint64 _syncDeadline = 0, _nextSweep = 0, _nextStatePoll = 0, _retrySyncAt = 0;
     qint64 _receiptRetryAt = 0;
     qint64 _nextDeletionPoll = 0;
@@ -139,6 +140,7 @@ signals:
     void sig_con_success(bool bsuccess);
     void sig_send_data(ReqId reqId, QString data);
     void sig_switch_chatlg();
+    void sessionAuthenticated(int uid, const QString &token);
     void sig_login_failed(int);
     void sig_user_search(QVariantList results);
     void searchPendingChanged();

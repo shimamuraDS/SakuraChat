@@ -5,11 +5,20 @@
 #include <QUrl>
 #include <QSslCertificate>
 #include <QSslSocket>
+#include "releaseconfig.h"
 
 void ConfigManager::loadConfig()
 {
     QString config_path = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings settings(config_path, QSettings::IniFormat);
+#if SAKURA_DISTRIBUTION
+    m_development = false;
+    m_gateUrlPrefix = QStringLiteral(SAKURA_GATEWAY);
+    m_tls = QSslConfiguration::defaultConfiguration();
+    m_tls.setProtocol(QSsl::TlsV1_2OrLater);
+    m_tls.setPeerVerifyMode(QSslSocket::VerifyPeer);
+    return;
+#endif
     const auto mode = settings.value("Security/Mode", "development").toString();
     m_development = mode == "development";
     if (mode != "development" && mode != "production") qFatal("Invalid Security/Mode");

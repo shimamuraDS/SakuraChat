@@ -32,6 +32,19 @@ Rectangle {
     readonly property color addBtnText:       UiTheme.success
 
     property string activeTab: "chat"
+    property bool privateMode: false
+    readonly property int selectedUid: privateMode ? privateChat.peerUid : tcpMgr.chatStore.activeUid
+    readonly property string selectedName: privateMode ? privateChat.peerName : tcpMgr.chatStore.activeName
+    readonly property var visibleMessages: privateMode ? privateChat.messages.map(function(row) {
+        return {msgid: row.id, senderUid: row.outgoing ? 0 : privateChat.peerUid,
+            messageText: row.text, isSentByMe: row.outgoing, senderName: row.outgoing ? "" : privateChat.peerName,
+            timestamp: row.time, status: row.status === "sent" ? "private_sent" : "private_pending"}
+    }) : tcpMgr.chatStore.messages
+    onPrivateModeChanged: {
+        messageInput.clear(); activeTab = "chat"; chatErrorMessage = ""
+        deleteMessageDialog.close(); retentionDialog.close()
+    }
+    Connections { target: privateChat; function onMessageQueued() { if (chatDialog.privateMode) messageInput.clear() } }
     property bool detailsOpen: true
     readonly property int pendingApplications: applyFriendPage.pendingCount
     readonly property bool privacyOpen: privacyDialog.visible
@@ -209,6 +222,11 @@ Rectangle {
     }
 
     function openPeer(uid) {
+        if (privateMode) {
+            const friend = tcpMgr.chatStore.friends.find(function(item) { return item.uid === uid })
+            if (friend) { privateChat.openPeer(uid, friend.name); activeTab = "chat"; messageInput.clear() }
+            return
+        }
         if (tcpMgr.chatStore.openConversation(uid)) {
             chatDialog.activeTab = "chat"
             chatDialog.chatErrorMessage = ""
@@ -451,19 +469,19 @@ Rectangle {
                         topMargin: 8
                         bottomMargin: 8
                         clip: true
-                        model: tcpMgr.chatStore.conversations
+                        model: chatDialog.privateMode ? tcpMgr.chatStore.friends : tcpMgr.chatStore.conversations
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                         delegate: ChatUserWid {
                             required property var modelData
-                            selected: tcpMgr.chatStore.activeUid === modelData.uid
+                            selected: chatDialog.selectedUid === modelData.uid
                             x: 10
                             width: chatListView.width - 20
                             userName: modelData.name
                             headImg: modelData.head || ""
-                            unreadCount: modelData.unread
-                            lastMsg: modelData.lastMsg
-                            msgTime: modelData.time
+                            unreadCount: chatDialog.privateMode ? 0 : modelData.unread
+                            lastMsg: chatDialog.privateMode ? qsTr("🔒 Signal 隐私会话") : modelData.lastMsg
+                            msgTime: chatDialog.privateMode ? "" : modelData.time
                             onClicked: chatDialog.openPeer(modelData.uid)
                         }
                     }
@@ -737,16 +755,25 @@ Rectangle {
             id: mainStack
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: tcpMgr.chatStore.activeUid > 0 ? 1 : 0
+            currentIndex: chatDialog.selectedUid > 0 ? 1 : 0
 
             // 页面 0: 未选择聊天时的占位页
             Rectangle {
                 color: UiTheme.canvas
                 Text {
+                    id: emptyConversationText
                     anchors.centerIn: parent
-                    text: "请选择一个联系人开始聊天"
+                    width: parent.width - 48; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                    text: chatDialog.privateMode ? (privateChat.connectionNotice || privateChat.notice) : qsTr("请选择一个联系人开始聊天")
                     color: chatDialog.textSecondary
                     font.pixelSize: 16
+                }
+                SakuraButton {
+                    anchors.top: emptyConversationText.bottom; anchors.topMargin: 16
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: chatDialog.privateMode && (!privateChat.ready || privateChat.connectionNotice.length > 0)
+                    text: qsTr("重试连接"); enabled: privateChat.canRetry
+                    onClicked: privateChat.retry()
                 }
             }
 
@@ -796,7 +823,7 @@ Rectangle {
                             color: UiTheme.success
                             Text {
                                 anchors.centerIn: parent
-                                text: tcpMgr.chatStore.activeName.slice(0, 1).toUpperCase()
+                                text: chatDialog.selectedName.slice(0, 1).toUpperCase()
                                 color: UiTheme.text
                                 font.pixelSize: 14; font.bold: true
                             }
@@ -804,10 +831,15 @@ Rectangle {
 
                         Column {
                             Layout.fillWidth: true
-                            Text { text: tcpMgr.chatStore.activeName; textFormat: Text.PlainText; font.pixelSize: 15; font.bold: true; color: chatDialog.textPrimary }
-                            Text { text: tcpMgr.chatReady ? qsTr("已连接") : qsTr("连接已断开"); font.pixelSize: 12; color: chatDialog.accentBlue }
+                            Text { text: chatDialog.selectedName; textFormat: Text.PlainText; font.pixelSize: 15; font.bold: true; color: chatDialog.textPrimary }
+                            Text { text: chatDialog.privateMode ? (privateChat.identityChanged ? qsTr("身份已变化 · 发送暂停") : privateChat.identityVerified ? qsTr("🔒 身份已核验") : qsTr("🔒 身份未核验")) : tcpMgr.chatReady ? qsTr("已连接") : qsTr("连接已断开"); font.pixelSize: 12; color: chatDialog.accentBlue }
                         }
 
+                        SakuraButton {
+                            visible: chatDialog.privateMode
+                            text: qsTr("🔒 安全码"); implicitHeight: 32
+                            onClicked: infoPanel.showSafetyCode()
+                        }
                         SakuraButton {
                             text: chatDialog.detailsOpen ? qsTr("收起详情") : qsTr("会话详情")
                             enabled: chatDialog.width >= 1180
@@ -819,18 +851,24 @@ Rectangle {
                     }
                 }
 
+                Label {
+                    Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                    visible: chatDialog.privateMode && privateChat.connectionNotice.length > 0
+                    text: privateChat.connectionNotice; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: UiTheme.secondary
+                }
                 // 区域 6：聊天记录区域
                 ChatView {
                     id: chatView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    messageRows: tcpMgr.chatStore.messages
-                    conversationUid: tcpMgr.chatStore.activeUid
-                    conversationVisible: chatDialog.visible && chatDialog.activeTab === "chat"
+                    messageRows: chatDialog.visibleMessages
+                    conversationUid: chatDialog.privateMode ? -chatDialog.selectedUid : chatDialog.selectedUid
+                    conversationVisible: !chatDialog.privateMode && !appLock.locked && tcpMgr.chatReady
+                                         && chatDialog.visible && chatDialog.activeTab === "chat"
                                          && Qt.application.state === Qt.ApplicationActive
                                          && !findSuccessDialog.visible && !applyFriendPopup.visible
                                          && !privacyDialog.visible && !deleteMessageDialog.visible && !retentionDialog.visible
-                    hasOlder: tcpMgr.chatStore.hasOlder
+                    hasOlder: !chatDialog.privateMode && tcpMgr.chatStore.hasOlder
                     onConversationVisibleChanged: tcpMgr.setConversationVisible(conversationVisible)
                     Component.onCompleted: tcpMgr.setConversationVisible(conversationVisible)
                     onMessageViewed: function(messageId) { tcpMgr.markMessageRead(messageId) }
@@ -910,7 +948,7 @@ Rectangle {
                                 ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                                 TextArea {
                                     id: messageInput
-                                    placeholderText: "输入消息…"
+                                    placeholderText: chatDialog.privateMode ? qsTr("输入隐私消息…（端到端加密）") : qsTr("输入消息…")
                                     placeholderTextColor: UiTheme.muted
                                     selectionColor: UiTheme.selection
                                     selectedTextColor: UiTheme.text
@@ -949,7 +987,7 @@ Rectangle {
                             Accessible.name: text
                             Layout.preferredWidth: 106
                             Layout.fillHeight: true
-                            enabled: tcpMgr.chatReady && tcpMgr.chatStore.activeCanSend && messageInput.text.trim().length > 0
+                            enabled: (chatDialog.privateMode ? privateChat.canSend : tcpMgr.chatReady && tcpMgr.chatStore.activeCanSend) && messageInput.text.trim().length > 0
                             contentItem: RowLayout {
                                 spacing: 8
                                 SakuraIcon { Layout.preferredWidth: 22; Layout.preferredHeight: 22; name: "send"; color: UiTheme.accentText }
@@ -962,20 +1000,23 @@ Rectangle {
             }
         }
         ConversationInfo {
+            id: infoPanel
             Layout.preferredWidth: 236
             Layout.fillHeight: true
             visible: chatDialog.detailsOpen && chatDialog.width >= 1180
                      && chatDialog.activeTab === "chat"
-            peerUid: tcpMgr.chatStore.activeUid
-            peerName: tcpMgr.chatStore.activeName
-            connected: tcpMgr.chatReady
-            loadedCount: tcpMgr.chatStore.messages.length
-            canSend: tcpMgr.chatStore.activeCanSend
+            privateMode: chatDialog.privateMode
+            peerUid: chatDialog.selectedUid
+            peerName: chatDialog.selectedName
+            connected: chatDialog.privateMode ? privateChat.ready && !privateChat.connectionNotice.length : tcpMgr.chatReady
+            loadedCount: chatDialog.visibleMessages.length
+            canSend: chatDialog.privateMode ? privateChat.canSend : tcpMgr.chatStore.activeCanSend
         }
     }
 
     // ── 发送消息 ─────────────────────────────────────────────
     function sendMessage() {
+        if (privateMode) { privateChat.send(messageInput.text); return }
         var id = tcpMgr.sendTextMessage(tcpMgr.chatStore.activeUid, messageInput.text)
         if (id.length > 0)
             messageInput.clear()

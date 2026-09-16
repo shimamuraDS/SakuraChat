@@ -15,9 +15,19 @@
 #include "lanchat.h"
 #include "applock.h"
 #include "privatenotifications.h"
+#include "privatechat/privatechatcontroller.h"
+#include "updatecontroller.h"
+#include <QTimer>
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_WIN
+    // Keep the installer mutex until all application objects have finished shutting down.
+    struct InstallationLease {
+        HANDLE value = CreateMutexW(nullptr, FALSE, L"SakuraChat.Release.Running");
+        ~InstallationLease() { if (value) CloseHandle(value); }
+    } installationLease;
+#endif
     QQuickStyle::setStyle("Basic");
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/res/sakura-mark.ico"));
@@ -26,7 +36,16 @@ int main(int argc, char *argv[])
 
     PrivateNotifications notifications;
     LanChat lanChat;
+    PrivateChatController privateChat;
+    UpdateController updater;
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("updater", &updater);
+    engine.rootContext()->setContextProperty("privateChat", &privateChat);
+    QObject::connect(TcpMgr::GetInstance().get(), &TcpMgr::sessionAuthenticated, &privateChat,
+                     [&privateChat](int uid, const QString &token) {
+        privateChat.beginSession(uid, token, ConfigManager::instance().gateUrlPrefix());
+    });
+    QObject::connect(TcpMgr::GetInstance().get(), &TcpMgr::loggedOut, &privateChat, &PrivateChatController::endSession);
     engine.rootContext()->setContextProperty("lanChat", &lanChat);
     engine.rootContext()->setContextProperty("privateNotifications", &notifications);
 
@@ -51,6 +70,7 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.loadFromModule("SakuraChat", "Main");
+    QTimer::singleShot(0, &updater, &UpdateController::initialize);
 
 #ifdef Q_OS_WIN
     // Windows 11 rounded desktop corners; unsupported systems keep their native shape.

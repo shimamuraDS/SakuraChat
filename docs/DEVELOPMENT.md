@@ -1,6 +1,6 @@
 # SakuraChat 项目文档
 
-更新日期：2026-09-08。好友章节按客户端 7fc7faf 静态核对，未构建或测试；完整链路缺口见 [好友功能现状](../docs/FRIEND_FEATURE_STATUS.md)，逐文件操作见 [适配教程](../docs/FRIEND_SEARCH_AND_APPLICATION_QML_TUTORIAL.md)。
+本文件为开发学习笔记；好友章节对应客户端 7fc7faf，不代表当前功能状态。当前功能入口见 [README](../README.md)，跨端教程位于服务端仓库 `docs/project/`。
 
 ## 项目概述
 

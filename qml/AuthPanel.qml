@@ -28,29 +28,45 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 28
         spacing: 16
-        Text { text: "SAKURA / DESKTOP"; color: UiTheme.cyan; font.family: "Consolas"; font.pixelSize: 12; font.letterSpacing: 1.5 }
+        Text { text: "SAKURACHAT / DESKTOP"; color: UiTheme.muted; font.family: "Consolas"; font.pixelSize: 10; font.letterSpacing: 2 }
         Item { Layout.fillHeight: true }
         Text {
-            text: "连接，\n由你掌控。"
-            color: UiTheme.text; font.pixelSize: 30; font.weight: Font.DemiBold; lineHeight: 1.3
+            text: qsTr("让距离止步。")
+            Layout.fillWidth: true
+            color: UiTheme.text; font.pixelSize: 32; font.weight: Font.DemiBold; font.letterSpacing: -0.5
         }
         Text {
-            text: "让界面退后，让对话向前。"
-            color: UiTheme.secondary; font.pixelSize: 13
+            text: qsTr("让对话继续。")
+            Layout.fillWidth: true; wrapMode: Text.Wrap
+            color: UiTheme.secondary; font.pixelSize: 18
         }
         Rectangle {
-            Layout.fillWidth: true; implicitHeight: 90
+            Layout.fillWidth: true; implicitHeight: modes.implicitHeight + 32
             radius: 10; color: UiTheme.field; border.color: UiTheme.border
-            Column {
-                anchors.fill: parent; anchors.margins: 16; spacing: 10
-                Text { text: ">_ CLOUD CHAT"; color: UiTheme.cyan; font.family: "Consolas"; font.pixelSize: 12 }
-                Text { text: "账户 · 联系人 · 消息"; color: UiTheme.secondary; font.pixelSize: 12 }
+            ColumnLayout {
+                id: modes
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                anchors.margins: 16; spacing: 14
+                Repeater {
+                    model: [
+                        { title: qsTr("默认对话"), detail: qsTr("云端保存，同步消息") },
+                        { title: qsTr("局域网对话"), detail: qsTr("同网连接，无需账号") },
+                        { title: qsTr("隐私对话"), detail: qsTr("Signal 协议，端到端加密") }
+                    ]
+                    delegate: ColumnLayout {
+                        required property var modelData
+                        Layout.fillWidth: true; spacing: 4
+                        Text { text: modelData.title; color: UiTheme.text; font.pixelSize: 12; font.weight: Font.Medium }
+                        Text { text: modelData.detail; color: UiTheme.muted; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                    }
+                }
             }
         }
-        Item { Layout.preferredHeight: 18 }
+        Item { Layout.preferredHeight: 4 }
         Text {
-            text: "云端聊天，不是端到端加密。"
-            color: UiTheme.muted; font.pixelSize: 11
+            text: qsTr("默认对话非端到端加密。\n需要端到端加密时，请选择隐私对话。")
+            Layout.fillWidth: true; wrapMode: Text.Wrap
+            color: UiTheme.muted; font.pixelSize: 10; lineHeight: 1.4
         }
     }
     Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: UiTheme.border }
