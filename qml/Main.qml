@@ -12,7 +12,7 @@ ApplicationWindow {
     minimumHeight: currentView === "chat" ? 640 : 650
     flags: Qt.Window | Qt.FramelessWindowHint
     visible: true
-    title: insecureTestBuild ? qsTr("SakuraChat · 不安全测试版") : qsTr("SakuraChat")
+    title: qsTr("SakuraChat")
     color: UiTheme.canvas
     font.family: "Microsoft YaHei UI"
     font.pixelSize: 14
@@ -24,27 +24,6 @@ ApplicationWindow {
     palette.windowText: UiTheme.text
     palette.highlight: UiTheme.accent
     palette.highlightedText: UiTheme.text
-    footer: Rectangle {
-        visible: insecureTestBuild
-        height: visible ? 42 : 0
-        color: "#4a3015"
-        Text {
-            anchors.fill: parent; anchors.margins: 7
-            text: qsTr("不安全测试版 · HTTPS 网关 / TCP 明文聊天 · 仅使用测试账号，勿发送真实隐私信息")
-            color: "#ffdb99"; font.pixelSize: 12; wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-        }
-    }
-    SakuraDialog {
-        id: insecureNotice
-        anchors.centerIn: parent; width: Math.min(500, root.width - 40)
-        title: qsTr("仅供不安全网络测试")
-        modal: true; closePolicy: Popup.NoAutoClose; standardButtons: Dialog.Ok
-        contentItem: Label {
-            text: qsTr("此版本未签名。登录网关使用 HTTPS，但聊天连接未启用 TLS，登录令牌和普通消息可能被截获或篡改。请仅使用专用测试账号，不要复用真实密码。Signal 消息加密不能消除账号令牌泄露的风险。\n\n测试数据与正常版本使用不同的本机数据目录。关闭程序后，本地测试记录仍会保留。")
-            color: UiTheme.text; wrapMode: Text.Wrap
-        }
-    }
     header: WindowTitleBar {
         updatesVisible: true
         window: root
@@ -116,7 +95,6 @@ ApplicationWindow {
 
     // 让应用启动时就在屏幕正中间
     Component.onCompleted: {
-        if (insecureTestBuild) insecureNotice.open()
         root.x = (Screen.width - root.width) / 2
         root.y = (Screen.height - root.height) / 2
     }

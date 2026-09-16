@@ -1,20 +1,43 @@
 # SakuraChat 项目文档
 
-本文件为开发学习笔记；好友章节对应客户端 7fc7faf，不代表当前功能状态。当前功能入口见 [README](../README.md)，跨端教程位于服务端仓库 `docs/project/`。
+> [!NOTE]
+> 本文件包含项目的开发学习笔记与早期组件参考；好友与基础流程章节记录了历史演进阶段，不代表当前最新版本的完整功能状态。
+> 当前最新功能索引与安全边界请以客户端根目录 [README.md](../README.md) 及 [docs/](.) 专项文档为准，服务端教程见 `Server/docs/project/`。
 
 ## 项目概述
 
-SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通讯客户端。
-本项目的核心设计目标是实现前后端极致解耦与现代化 UI 交互。前端完全摒弃传统的 Qt Widgets，采用 QML 声明式语法构建媲美 Telegram 风格的流畅界面；后端采用 C++ 处理高并发网络通信与底层逻辑。项目全面拥抱 Qt 6.8 的现代化架构，通过 CMake 深度集成模块，提供高效、稳定且易于扩展的即时通讯解决方案。
+SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的高性能即时通讯客户端。
+本项目的核心设计目标是实现前后端极致解耦与现代化 UI 交互。前端采用 QML 声明式语法构建石墨黑 / 冷蓝 Kali 终端风格的暗色流畅界面；后端采用 C++ 处理高并发网络通信、持久化和底层安全逻辑。项目全面拥抱 Qt 6.8 的现代化架构，通过 CMake 深度集成模块，提供高效、稳定且易于扩展的即时通讯解决方案。
 
-## 技术栈
+## 现代技术栈
 
-- **前端**: Qt Quick/QML (完整业务逻辑)
-- **后端**: C++ (网络通信和数据处理)
+- **前端**: Qt Quick/QML (业务呈现、Kali 风格组件库 `UiTheme.qml`、`SakuraButton.qml` 等)
+- **后端**: C++17 (网络通信、业务逻辑、控制器、状态机)
+- **端到端加密**: Rust `libsignal` 官方库固定版本 + C-ABI 桥接 (`crypto/signal-bridge/`)
+- **局域网安全通信**: TLS 1.2+ (`QSslServer` / `QSslSocket`) + OpenSSL 3 生成的自签名证书与 SHA-256 指纹校验
+- **本地安全持久化**: SQLite + Windows DPAPI (`src/localchatstore.*`、`src/privatechat/privatechatstore.*`)
 - **构建工具**: CMake (利用 `qt_add_qml_module` 深度集成)
-- **Qt版本**: 6.8
-- **设计模式**: 单例模式、信号槽机制
-- **架构**: 现代 Qt 6 架构 (QML前端 + C++网络层 + `QML_ELEMENT` 声明式注册)
+- **Qt版本**: 6.8.3 MinGW 64-bit
+- **设计模式**: 单例模式、信号槽机制、状态模式、工作线程解耦
+
+## 核心架构与扩展模块
+
+除了传统的登录、注册及基础网络层，当前客户端架构已扩展为以下核心业务模块：
+
+1. **云端聊天与持久化 (`src/`)**：
+   - `tcpmgr.*`：处理 1005~1027、1040~1047 等云端 TCP 消息分发与粘包解包。
+   - `localchatstore.*`：使用 Windows DPAPI 加密的本地 SQLite 聊天缓存与已读回执存储。
+   - `chatviewmodel.*` / `conversationmodel.*`：对接 QML 的高性能消息气泡与会话列表模型。
+2. **Signal 端到端隐私对话 (`src/privatechat/`)**：
+   - `signalbridge.*`：动态加载 Rust 编译的 libsignal C-ABI 桥接 DLL。
+   - `privatechatstore.*`：DPAPI 保护的独立 SQLite，负责一次性预密钥、会话状态与密文发件箱持久化。
+   - `privatechatengine.*` / `privatechatcontroller.*`：运行于独立工作线程的加密/解密收发引擎，与 UI 完全解耦。
+3. **加密局域网房间 (`src/lanchat/`)**：
+   - 支持脱离云端服务器的端对端 TLS 局域网临时群聊，使用 128 位口令认证与证书指纹防护。
+4. **安全与构建策略 (`src/configmanager.*`)**：
+   - 开发模式仅允许本机 HTTP/TCP；分发构建固定 HTTPS 网关、强制 TLS，支持通过 `SAKURA_CA_FILE` 内置公有 CA。
+
+---
 
 ## 详细文件说明
 
@@ -24,24 +47,23 @@ SakuraChat 是一款基于现代 Qt 6 (C++) 与 QML 技术栈构建的即时通�
 - **功能**: 应用入口点（极致瘦身版）
 - **关键组件**:
   - 初始化 `QGuiApplication` 和 `QQmlApplicationEngine`
-  - 调用 `ConfigManager::instance().loadConfig()` 进行全局配置初始化
+  - 初始化全局配置 `ConfigManager::instance().loadConfig()` 与 TLS 信任配置
   - 直接加载主 QML 模块 (`engine.loadFromModule`)
-  - **架构革新**: 废弃了传统的 `setContextProperty` 和 `qmlRegisterType`，将 QML 类型注册工作完全交由现代 Qt 的宏和 CMake 自动处理。
+  - **架构革新**: 采用现代 Qt 的宏 (`QML_ELEMENT`) 和 CMake 自动处理类型注册与 `.qmltypes` 导出。
 
 #### `CMakeLists.txt`
 - **功能**: 项目构建配置
 - **关键配置**:
   - 设置 Qt 6.8 为最低要求
-  - 定义项目名称和版本
-  - **核心革新**: 使用 `qt_add_qml_module` 自动扫描带有 `QML_ELEMENT` 等宏的 C++ 头文件，自动生成注册代码和 `.qmltypes` 类型定义文件。
-  - 自动部署: 在 Windows Release 模式下自动拷贝 `config.ini` 到输出目录。
+  - 定义项目名称与版本（支持 `SAKURA_RELEASE_VERSION`）
+  - `SAKURA_DISTRIBUTION` 构建固定端点的 TLS 分发版，支持签名安装包和未签名便携包。
+  - 使用 `qt_add_qml_module` 自动编译 QML 文件与 C++ 声明类型。
   
 #### `config.ini`
-- **功能**: 应用配置文件
+- **功能**: 本机开发环境配置文件（分发构建不读取此文件）
 - **配置项**:
-  - Gate服务器主机地址 (默认: localhost)
-  - Gate服务器端口 (默认: 8081)
-  - 用途: 存储网络连接配置，便于部署时修改
+  - Gate 服务器主机地址与端口
+  - 用途: 本地联调与开发阶段灵活修改端口参数
 
 ### 2. QML界面文件
 

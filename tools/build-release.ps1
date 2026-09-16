@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory)][string]$MinGWBin,
     [Parameter(Mandatory)][string]$DependencyDirectory,
     [Parameter(Mandatory)][string]$LicenseDirectory,
+    [string]$CaFile='',
     [string]$CMake='cmake', [string]$Cargo='cargo', [string]$SignTool='signtool', [string]$ISCC='ISCC'
 )
 . "$PSScriptRoot/Release.Common.ps1"
@@ -27,7 +28,7 @@ New-Item -ItemType Directory -Path $stage,$artifacts -Force | Out-Null
 $env:PATH = "$QtRoot/bin;$MinGWBin;" + $env:PATH
 Invoke-Checked $CMake @('-S',$project,'-B',$build,'-G','Ninja',"-DCMAKE_PREFIX_PATH=$QtRoot",'-DCMAKE_BUILD_TYPE=Release','-DSAKURA_DISTRIBUTION=ON',
     "-DSAKURA_RELEASE_VERSION=$($settings.version)","-DSAKURA_GATEWAY=$($settings.gateway)",
-    "-DSAKURA_GITHUB_REPOSITORY=$($settings.githubRepository)","-DSAKURA_PUBLISHER=$($settings.publisher)")
+    "-DSAKURA_GITHUB_REPOSITORY=$($settings.githubRepository)","-DSAKURA_PUBLISHER=$($settings.publisher)","-DSAKURA_CA_FILE=$CaFile")
 $manifest = Join-Path $project 'crypto/signal-bridge/Cargo.toml'
 Invoke-Checked $Cargo @('test','--release','--locked','--manifest-path',$manifest)
 Invoke-Checked $Cargo @('build','--release','--locked','--manifest-path',$manifest)

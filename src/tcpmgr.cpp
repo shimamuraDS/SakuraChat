@@ -8,7 +8,6 @@
 #include <QUuid>
 #include <QDateTime>
 #include "configmanager.h"
-#include "testbuildpolicy.h"
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0) {
     _chatStore = new ChatStore(this);
@@ -303,17 +302,13 @@ void TcpMgr::slot_tcp_connect(ServerInfo si) {
         _socket.abort();
     }
 
-    if (TestBuildPolicy::enabled && !TestBuildPolicy::resolveChat(si.Host, si.Port)) {
-        emit sig_con_success(false);
-        return;
-    }
     _host = si.Host;
     _connectingUid = si.Uid;
     _connectingToken = si.Token;
     _intentionalDisconnect = false;
     _port = static_cast<uint16_t>(si.Port.toUInt());
     if (ConfigManager::instance().development()) {
-        if (!TestBuildPolicy::enabled && si.Host != "127.0.0.1" && si.Host != "localhost" && si.Host != "::1") {
+        if (si.Host != "127.0.0.1" && si.Host != "localhost" && si.Host != "::1") {
             emit sig_con_success(false);
             return;
         }

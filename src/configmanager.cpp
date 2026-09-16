@@ -1,21 +1,15 @@
 #include "configmanager.h"
 #include <QCoreApplication>
 #include <QSettings>
+#include <QFile>
 #include <QDebug>
 #include <QUrl>
 #include <QSslCertificate>
 #include <QSslSocket>
 #include "releaseconfig.h"
-#include "testbuildpolicy.h"
 
 void ConfigManager::loadConfig()
 {
-    if (TestBuildPolicy::enabled) {
-        m_development = true;
-        m_gateUrlPrefix = TestBuildPolicy::gateway();
-        m_tls = QSslConfiguration::defaultConfiguration();
-        return;
-    }
     QString config_path = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings settings(config_path, QSettings::IniFormat);
 #if SAKURA_DISTRIBUTION
@@ -24,6 +18,12 @@ void ConfigManager::loadConfig()
     m_tls = QSslConfiguration::defaultConfiguration();
     m_tls.setProtocol(QSsl::TlsV1_2OrLater);
     m_tls.setPeerVerifyMode(QSslSocket::VerifyPeer);
+    if (QFile::exists(":/trust/ca.crt")) {
+        const auto certs = QSslCertificate::fromPath(":/trust/ca.crt");
+        if (certs.isEmpty()) qFatal("Cannot load bundled TLS CA");
+        m_tls.addCaCertificates(certs);
+    }
+    QSslConfiguration::setDefaultConfiguration(m_tls);
     return;
 #endif
     const auto mode = settings.value("Security/Mode", "development").toString();
@@ -38,6 +38,7 @@ void ConfigManager::loadConfig()
         if (certs.isEmpty()) qFatal("Cannot load configured TLS CA");
         m_tls.addCaCertificates(certs);
     }
+    QSslConfiguration::setDefaultConfiguration(m_tls);
 
     QString gate_host = settings.value("GateServer/host").toString();
     QString gate_port = settings.value("GateServer/port").toString();

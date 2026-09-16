@@ -1,9 +1,9 @@
-Third-party components in the Windows x64 test bundle
+Third-party components in the Windows x64 portable bundle
 
 Qt 6.8.3 (qtbase, qtdeclarative, qtsvg): The Qt Company and contributors.
 Dynamically linked, unmodified Qt binaries. License texts, third-party notices,
 and attribution metadata are included under licenses/qt*-everywhere-src-6.8.3/.
-Matching module source archives are attached to this GitHub Pre-release.
+Matching module source archives are attached to this GitHub Release.
 The dynamic libraries may be replaced with compatible versions; this package
 does not prohibit debugging modifications to LGPL-covered libraries.
 

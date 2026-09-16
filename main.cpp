@@ -18,7 +18,6 @@
 #include "privatechat/privatechatcontroller.h"
 #include "updatecontroller.h"
 #include <QTimer>
-#include "testbuildpolicy.h"
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +30,6 @@ int main(int argc, char *argv[])
 #endif
     QQuickStyle::setStyle("Basic");
     QApplication app(argc, argv);
-    if (TestBuildPolicy::enabled) app.setApplicationName("SakuraChat-InsecureTest");
     app.setWindowIcon(QIcon(":/res/sakura-mark.ico"));
 
     ConfigManager::instance().loadConfig();
@@ -41,7 +39,6 @@ int main(int argc, char *argv[])
     PrivateChatController privateChat;
     UpdateController updater;
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty("insecureTestBuild", TestBuildPolicy::enabled);
     engine.rootContext()->setContextProperty("updater", &updater);
     engine.rootContext()->setContextProperty("privateChat", &privateChat);
     QObject::connect(TcpMgr::GetInstance().get(), &TcpMgr::sessionAuthenticated, &privateChat,

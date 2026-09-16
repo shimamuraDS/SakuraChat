@@ -17,6 +17,10 @@ Rectangle {
     property bool isLoading: false
     signal switchLogin()
 
+    RegisterController {
+        id: registerController
+    }
+
     // ─────────────────────────────────────────────────────────
     // 核心逻辑区：统一的错误提示与表单校验
     // ─────────────────────────────────────────────────────────
@@ -56,7 +60,7 @@ Rectangle {
     // 信号与控制器交互区
     // ─────────────────────────────────────────────────────────
     Connections {
-        target: RegisterController
+        target: registerController
 
         function onVerifyCodeResult(success, message) {
             showTip(message, !success)

@@ -11,22 +11,23 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 $cache = Get-Content -LiteralPath "$BuildDirectory/CMakeCache.txt" -Raw
-if ($cache -notmatch '(?m)^SAKURA_INSECURE_TEST:BOOL=ON\r?$' -or
-    $cache -notmatch '(?m)^SAKURA_DISTRIBUTION:BOOL=OFF\r?$' -or
+if ($cache -notmatch '(?m)^SAKURA_DISTRIBUTION:BOOL=ON\r?$' -or
     $cache -notmatch '(?m)^CMAKE_BUILD_TYPE:STRING=Release\r?$' -or
-    $cache -notmatch '(?m)^SAKURA_RELEASE_VERSION:STRING=0\.1\.1\r?$') {
-    throw 'Requires the isolated 0.1.1 insecure Release build, not a production or Debug build.'
+    $cache -notmatch '(?m)^SAKURA_RELEASE_VERSION:STRING=(\d+\.\d+\.\d+)\r?$') {
+    throw 'Requires a production distribution Release build with a numeric version.'
 }
+$versionMatch = [regex]::Match($cache, '(?m)^SAKURA_RELEASE_VERSION:STRING=(\d+\.\d+\.\d+)\r?$')
+$version = $versionMatch.Groups[1].Value
 if (!(Test-Path -LiteralPath "$LicenseDirectory/libsignal-AGPL.txt")) { throw 'Missing license bundle' }
-$name = 'SakuraChat-0.1.1-insecure-test.1-windows-x64'
+$name = "SakuraChat-$version-windows-x64-portable"
 $stage = Join-Path $OutputDirectory $name
 if (Test-Path -LiteralPath $stage) { throw 'Use a fresh output directory' }
 $null = New-Item -ItemType Directory -Path $stage
 $savedPath = $env:PATH
 try {
     $env:PATH = "$QtBin;$MinGWBin;" + $savedPath
-    & "$BuildDirectory/testbuildpolicy_tests.exe"
-    if ($LASTEXITCODE -ne 0) { throw 'Endpoint policy tests failed' }
+    & "$BuildDirectory/tlsconfig_tests.exe"
+    if ($LASTEXITCODE -ne 0) { throw 'TLS configuration tests failed' }
     Copy-Item -LiteralPath "$BuildDirectory/appSakuraChat.exe", "$project/crypto/signal-bridge/target/release/sakura_signal_bridge.dll" -Destination $stage
     & "$QtBin/windeployqt.exe" --release --no-translations --no-opengl-sw --no-system-d3d-compiler --skip-plugin-types platforminputcontexts,qmltooling,sqldrivers --qmldir "$project/qml" --compiler-runtime "$stage/appSakuraChat.exe"
     if ($LASTEXITCODE -ne 0) { throw 'Qt deployment failed' }
@@ -38,8 +39,8 @@ try {
     if ((Split-Path $RuntimeDll -Leaf) -ne 'vcruntime140.dll') { throw 'Expected the redistributable VCRUNTIME140.dll' }
     Copy-Item -LiteralPath $RuntimeDll -Destination $stage
     Copy-Item -LiteralPath $LicenseDirectory -Destination "$stage/licenses" -Recurse
-    Copy-Item -LiteralPath "$project/release/TEST_README.txt" -Destination "$stage/README.txt"
-    Copy-Item -LiteralPath "$project/release/THIRD_PARTY_NOTICES.test.txt" -Destination "$stage/THIRD_PARTY_NOTICES.txt"
+    Copy-Item -LiteralPath "$project/release/PORTABLE_README.txt" -Destination "$stage/README.txt"
+    Copy-Item -LiteralPath "$project/release/THIRD_PARTY_NOTICES.txt" -Destination "$stage/THIRD_PARTY_NOTICES.txt"
     $inventory = @(Get-ChildItem -LiteralPath $stage -Recurse -File | ForEach-Object {
         $relative = [IO.Path]::GetRelativePath($stage,$_.FullName)
         if (!$relative.StartsWith('licenses' + [IO.Path]::DirectorySeparatorChar) -and $_.Extension -in '.key','.pfx','.p12','.db','.sqlite','.log','.ini') { throw "Unexpected private or configuration file: $($_.Name)" }

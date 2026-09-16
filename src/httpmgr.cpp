@@ -1,7 +1,6 @@
 #include "httpmgr.h"
 #include <QDebug>
 #include "configmanager.h"
-#include "testbuildpolicy.h"
 
 HttpMgr::HttpMgr() {
     // 连接http请求和完成信号
@@ -16,7 +15,6 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     // 通过url构造请求
     QNetworkRequest request(url);
     if (!url.isValid() || url.host().isEmpty() ||
-        (TestBuildPolicy::enabled && !TestBuildPolicy::permitsGateway(url)) ||
         (!ConfigManager::instance().development() && url.scheme() != "https")) {
         emit sig_http_finish(req_id, "", ErrorCodes::ERR_NETWORK, mod);
         return;

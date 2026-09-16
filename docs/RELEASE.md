@@ -45,4 +45,27 @@ cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAKURA_RELEASE
 
 协议状态升级须保持兼容；没有跨版本迁移与恢复验证时不得发布不兼容格式。全量备份含密钥等敏感信息，应单独保护且不得随安装包分发。
 
+---
+
+## 未签名便携版
+
+便携 ZIP 与签名安装包均使用 `SAKURA_DISTRIBUTION=ON`，强制 HTTPS/TLS，忽略旁置配置文件。代码签名与 TLS 信任相互独立：未签名包可能触发 Windows 未知发布者提示，但不允许降级到公网明文。
+
+当前网关为 `https://47.105.85.58:8443`，聊天节点为 `47.105.85.58:8090/8091`。通过 `-DSAKURA_CA_FILE=<ca.crt绝对路径>` 将公有 CA 编译为 Qt 资源，普通 HTTP、聊天 TLS 及隐私对话共用信任配置；不安装系统根证书、不打包私钥。签名构建脚本也可传入 `-CaFile`。
+
+```powershell
+cmake -S . -B release-output/0.1.2/build -G Ninja `
+  '-DCMAKE_BUILD_TYPE=Release' '-DSAKURA_DISTRIBUTION=ON' `
+  '-DSAKURA_RELEASE_VERSION=0.1.2' '-DSAKURA_PUBLISHER=shimamuraDS' `
+  '-DSAKURA_GATEWAY=https://47.105.85.58:8443' `
+  "-DSAKURA_CA_FILE=$PWD/ca.crt" '-DCMAKE_PREFIX_PATH=<Qt目录>'
+cmake --build release-output/0.1.2/build --target appSakuraChat tlsconfig_tests
+./tools/package-portable.ps1 -BuildDirectory "$PWD/release-output/0.1.2/build" `
+  -QtBin '<Qt/bin>' -MinGWBin '<MinGW/bin>' -OpenSslBin '<OpenSSL/bin>' `
+  -RuntimeDll '<已获授权的vcruntime140.dll>' -LicenseDirectory '<许可证目录>' `
+  -OutputDirectory "$PWD/release-output/0.1.2/publish"
+```
+
+打包前按 `tools/build-release.ps1` 构建并测试 Rust 桥接。发布 ZIP、SHA256 清单、对应客户端与 Rust 依赖源码、Qt/OpenSSL 对应源码。完整解压后运行 `appSakuraChat.exe`；数据仍保存在 Windows 用户应用数据目录。旧测试版的隔离数据不自动迁移；隐私身份变化需要重新核对安全码。此包没有 Authenticode 签名，哈希清单不代替发布者身份认证。
+
 参考：[GitHub Releases API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)、[Qt Windows 部署](https://doc.qt.io/qt-6/windows-deployment.html)、[Inno Setup](https://jrsoftware.org/ishelp/)。

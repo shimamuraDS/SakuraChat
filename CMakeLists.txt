@@ -107,7 +107,6 @@ qt_add_qml_module(appSakuraChat
         src/chatrepository.cpp
     RESOURCES
         sakurachat.qrc
-        config.ini
 )
 
 if(WIN32)
@@ -119,9 +118,16 @@ endif()
 
 target_include_directories(appSakuraChat PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(appSakuraChat PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
-if(SAKURA_DISTRIBUTION OR SAKURA_INSECURE_TEST)
+if(SAKURA_DISTRIBUTION)
     target_compile_definitions(appSakuraChat PRIVATE SAKURA_PACKAGED=1)
 endif()
+function(sakura_bundle_ca target)
+    if(SAKURA_DISTRIBUTION AND SAKURA_CA_FILE)
+        set_source_files_properties("${SAKURA_CA_FILE}" PROPERTIES QT_RESOURCE_ALIAS "ca.crt")
+        qt_add_resources(${target} "trusted_ca" PREFIX "/trust" FILES "${SAKURA_CA_FILE}")
+    endif()
+endfunction()
+sakura_bundle_ca(appSakuraChat)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -161,9 +167,10 @@ if(WIN32)
 endif()
 add_executable(privatechatstore_tests EXCLUDE_FROM_ALL tests/privatechatstore_tests.cpp)
 add_executable(updatecontroller_tests EXCLUDE_FROM_ALL tests/updatecontroller_tests.cpp src/updatecontroller.cpp src/updatecontroller.h)
-add_executable(testbuildpolicy_tests EXCLUDE_FROM_ALL tests/testbuildpolicy_tests.cpp)
-target_include_directories(testbuildpolicy_tests PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
-target_link_libraries(testbuildpolicy_tests PRIVATE Qt6::Core)
+add_executable(tlsconfig_tests EXCLUDE_FROM_ALL tests/tlsconfig_tests.cpp src/configmanager.cpp src/configmanager.h)
+target_include_directories(tlsconfig_tests PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
+target_link_libraries(tlsconfig_tests PRIVATE Qt6::Core Qt6::Network)
+sakura_bundle_ca(tlsconfig_tests)
 target_include_directories(updatecontroller_tests PRIVATE src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(updatecontroller_tests PRIVATE Qt6::Core Qt6::Gui Qt6::Network)
 add_executable(messagelistmodel_tests EXCLUDE_FROM_ALL tests/messagelistmodel_tests.cpp src/messagelistmodel.cpp src/messagelistmodel.h)
@@ -195,10 +202,12 @@ install(TARGETS appSakuraChat
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+if(NOT SAKURA_DISTRIBUTION)
 add_custom_command(TARGET appSakuraChat POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
         "$<TARGET_FILE_DIR:appSakuraChat>/config.ini"
     COMMENT "Copying config.ini to output directory"
 )
+endif()
 
