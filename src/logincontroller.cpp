@@ -64,8 +64,7 @@ void LoginController::initHttpHandlers()
         _uid = si.Uid;
         _token = si.Token;
 
-        qDebug() << "User is" << email << "uid is" << si.Uid << "host is"
-                 << si.Host << "Port is" << si.Port << "Token is" << si.Token;
+        qDebug() << "Login authenticated; connecting to assigned chat node";
 
         // 发送HTTP登录成功信号（QML会接收并显示提示）
         emit loginResult(true, ErrorCodes::SUCCESS, "登录验证成功", email);

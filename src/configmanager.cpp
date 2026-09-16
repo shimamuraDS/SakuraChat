@@ -6,9 +6,16 @@
 #include <QSslCertificate>
 #include <QSslSocket>
 #include "releaseconfig.h"
+#include "testbuildpolicy.h"
 
 void ConfigManager::loadConfig()
 {
+    if (TestBuildPolicy::enabled) {
+        m_development = true;
+        m_gateUrlPrefix = TestBuildPolicy::gateway();
+        m_tls = QSslConfiguration::defaultConfiguration();
+        return;
+    }
     QString config_path = QCoreApplication::applicationDirPath() + "/config.ini";
     QSettings settings(config_path, QSettings::IniFormat);
 #if SAKURA_DISTRIBUTION

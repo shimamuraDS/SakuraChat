@@ -1,0 +1,34 @@
+Third-party components in the Windows x64 test bundle
+
+Qt 6.8.3 (qtbase, qtdeclarative, qtsvg): The Qt Company and contributors.
+Dynamically linked, unmodified Qt binaries. License texts, third-party notices,
+and attribution metadata are included under licenses/qt*-everywhere-src-6.8.3/.
+Matching module source archives are attached to this GitHub Pre-release.
+The dynamic libraries may be replaced with compatible versions; this package
+does not prohibit debugging modifications to LGPL-covered libraries.
+
+libsignal / Signal Protocol: Signal Messenger, LLC and contributors.
+Commit 8fc2113bda042fc972a166a24b974b0d34155c6c, GNU AGPLv3.
+SPQR v1.5.3: Signal Messenger, LLC and contributors, GNU AGPLv3.
+Root license texts are in licenses/libsignal-AGPL.txt and SPQR-AGPL.txt.
+The client and bridge source, Cargo.lock, and vendored Rust dependency sources
+are attached to the same release. Each dependency retains its own license.
+This application is not affiliated with or endorsed by Signal.
+
+OpenSSL 3.6.2: The OpenSSL Project Authors, Apache License 2.0.
+License: licenses/OpenSSL-3.6.2.txt.
+Source: https://github.com/openssl/openssl/releases/tag/openssl-3.6.2
+Binaries: conda-forge openssl 3.6.2 hf411b9b_0 (unmodified).
+
+GNU GCC 13.1 / MinGW-w64 / winpthreads runtime libraries:
+GCC Runtime Library Exception and component-specific licenses are supplied
+under licenses/gcc/, licenses/mingw-w64/ and licenses/winpthreads/.
+Toolchain supplied with Qt mingw1310_64.
+
+Microsoft Visual C++ runtime: Microsoft Corporation.
+Redistributed VCRUNTIME140.dll; license in licenses/Microsoft-runtime.rtf.
+Windows system libraries themselves are not included in this package.
+
+Qt and Rust dependencies contain additional third-party code. Their complete
+source distributions and individual license notices accompany this release.
+No claim of security audit, production readiness, or code signing is made.
