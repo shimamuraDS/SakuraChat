@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="res/SakuraChat.png" alt="SakuraChat Logo" width="128" height="128" />
+  <img src="res/sakura-mark.png" alt="SakuraChat Logo" width="128" height="128" />
 </p>
 
 <h1 align="center">SakuraChat</h1>
@@ -30,14 +30,10 @@
 
 ## 📸 界面预览 / Visual Showcase / スクリーンショット
 
-> [!NOTE]
-> 截图文件存放在 `docs/images/` 目录下。更多详细截图指引见文末说明。
-> Screenshots are located in `docs/images/`. Detailed capture instructions can be found below.
-
 | 主聊天界面 (Main Chat) | Signal 端到端隐私对话 (Private Chat) |
 | :---: | :---: |
 | ![Main Chat Interface](docs/images/screenshot_main_chat.png) | ![Signal E2EE Private Chat](docs/images/screenshot_private_chat.png) |
-| *Kali 终端暗黑美学 · 会话与消息流* | *双棘轮端到端加密 · 安全码防中间人核验* |
+| *Kali 风格 · 会话与消息流* | *双棘轮端到端加密 · 安全码防中间人核验* |
 
 | 局域网加密房间 (LAN Chat) | 联系人与好友申请 (Contacts & Requests) |
 | :---: | :---: |
@@ -72,7 +68,7 @@
    - **已读回执与送达确认**：支持精确的消息状态反馈（发送中、已送达、已读）。
    - **消息撤回与生命周期管理**：支持单向本地删除与双向撤回广播；支持配置基于时间阈值的到期自动销毁策略。
 
-4. **🎨 Kali 极客暗黑风交互体验（Cyber-Dark UI）**
+4. **🎨 Kali 风格交互体验（Cyber-Dark UI）**
    - 深度融合石墨黑（Graphite Black）与冷蓝（Ice Blue）霓虹风格，科技感十足。
    - 基于 **Qt 6.8 + QML** 声明式引擎开发，拥有丝滑的高刷渲染、自适应消息气泡排版与右键上下文交互。
 
@@ -148,7 +144,7 @@ cmake --build . --config Release
 - 🛡️ [安全与隐私整体设计](docs/SECURITY_PRIVACY.md) · [应用锁实现](docs/APP_LOCK.md)
 - 🗄️ [本地缓存保护机制](docs/LOCAL_CACHE_PROTECTION.md) · [消息清理策略](docs/MESSAGE_DELETION.md)
 - 🚀 [发布、便携打包与签名规范](docs/RELEASE.md)
-- 🎨 [Kali 暗黑界面设计与交互重构](docs/UI_REFRESH.md)
+- 🎨 [Kali 风格界面设计与交互重构](docs/UI_REFRESH.md)
 
 ---
 
